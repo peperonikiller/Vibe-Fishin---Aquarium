@@ -1,4 +1,4 @@
--- VibeFishin v2.0.1 - WoW Forever (Interface 16001)
+-- VibeFishin v2.0.2 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -2787,16 +2787,8 @@ local function buildIndicator()
   castTimerWindow:SetFrameStrata('HIGH')
   castTimerWindow:SetScale(characterSettings.timerScale or 1)
 
-  castTimerWindow.bg = castTimerWindow:CreateTexture(nil, 'BACKGROUND')
-  castTimerWindow.bg:SetAllPoints()
-  castTimerWindow.bg:SetTexture('Interface\\Buttons\\WHITE8X8')
-  castTimerWindow.bg:SetColorTexture(0.05, 0.12, 0.14, 0.80)
-
-  castTimerWindow.trim = castTimerWindow:CreateTexture(nil, 'BORDER')
-  castTimerWindow.trim:SetPoint('TOPLEFT', 1, -1)
-  castTimerWindow.trim:SetPoint('BOTTOMRIGHT', -1, 1)
-  castTimerWindow.trim:SetTexture('Interface\\Tooltips\\UI-Tooltip-Border')
-  castTimerWindow.trim:SetVertexColor(0.28, 0.82, 0.86, 0.42)
+  -- The cast timer is intentionally transparent; only the fishing graphics,
+  -- countdown labels, and water surface indicators are rendered.
 
   castTimerWindow.caption = label(castTimerWindow, 'CAST WATCH', 10, 12, -14, .95, .82, .55)
   castTimerWindow.clock = label(castTimerWindow, '0.0s', 15, 176, -13, .93, .99, .95)
@@ -2807,12 +2799,6 @@ local function buildIndicator()
   castTimerWindow.pole:SetTexCoord(.08,.92,.08,.92)
   castTimerWindow.pole:SetSize(34,34)
   castTimerWindow.pole:SetPoint('LEFT', castTimerWindow, 'LEFT', 18, 0)
-
-  castTimerWindow.poleGlow = castTimerWindow:CreateTexture(nil, 'OVERLAY')
-  castTimerWindow.poleGlow:SetTexture('Interface\\COMMON\\Indicator-Yellow')
-  castTimerWindow.poleGlow:SetSize(48,48)
-  castTimerWindow.poleGlow:SetPoint('CENTER', castTimerWindow.pole, 'CENTER')
-  castTimerWindow.poleGlow:SetVertexColor(.68,.95,1,.12)
 
   castTimerWindow.line = castTimerWindow:CreateTexture(nil, 'ARTWORK')
   castTimerWindow.line:SetTexture('Interface\\Buttons\\WHITE8X8')
@@ -2833,10 +2819,23 @@ local function buildIndicator()
   castTimerWindow.ripples = {}
   for i=1,3 do
     local r = castTimerWindow:CreateTexture(nil, 'BACKGROUND')
-    r:SetTexture('Interface\\COMMON\\Indicator-Yellow')
-    r:SetVertexColor(.66,.95,1, .12 - i*0.02)
+    -- Flat accent lines avoid the built-in yellow indicator artwork.
+    r:SetTexture('Interface\\Buttons\\WHITE8X8')
+    r:SetColorTexture(.46,.86,1, .25 - i*0.04)
     castTimerWindow.ripples[i] = r
   end
+
+  -- Attach the waterline to the bobber anchor so both move together.
+  -- The dark underlay keeps the thin cyan highlight readable on bright water.
+  castTimerWindow.waterlineShadow = castTimerWindow:CreateTexture(nil, 'ARTWORK')
+  castTimerWindow.waterlineShadow:SetColorTexture(.02, .20, .28, .6)
+  castTimerWindow.waterlineShadow:SetSize(40, 3)
+  castTimerWindow.waterlineShadow:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -6)
+
+  castTimerWindow.waterline = castTimerWindow:CreateTexture(nil, 'OVERLAY')
+  castTimerWindow.waterline:SetColorTexture(.36, .91, 1, .95)
+  castTimerWindow.waterline:SetSize(38, 2)
+  castTimerWindow.waterline:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -5)
 
   castTimerWindow.bobberShadow = castTimerWindow:CreateTexture(nil, 'ARTWORK')
   castTimerWindow.bobberShadow:SetTexture('Interface\\Buttons\\WHITE8X8')
@@ -3461,6 +3460,16 @@ local function updateFishVisuals(t)
       local bobY = -2 + math.sin(t * 5.4) * 5
       castTimerWindow.bobberAnchor:ClearAllPoints()
       castTimerWindow.bobberAnchor:SetPoint('LEFT', castTimerWindow, 'LEFT', bobX, bobY)
+      -- Gentle independent surface motion follows the bobber without
+      -- introducing any per-frame frames, timers, or unbounded allocations.
+      local waterSway = math.sin(t * 3.2) * 1.6
+      local waterWidth = 38 + math.sin(t * 2.4) * 4
+      castTimerWindow.waterline:ClearAllPoints()
+      castTimerWindow.waterline:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -5 + waterSway)
+      castTimerWindow.waterline:SetWidth(waterWidth)
+      castTimerWindow.waterlineShadow:ClearAllPoints()
+      castTimerWindow.waterlineShadow:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -6 + waterSway)
+      castTimerWindow.waterlineShadow:SetWidth(waterWidth + 2)
       if castTimerWindow.bobberShadow then castTimerWindow.bobberShadow:SetWidth(16 + math.abs(math.sin(t*5.4))*6) end
       if castTimerWindow.line then
         local startX, startY = 46, 2
@@ -3490,7 +3499,7 @@ local function updateFishVisuals(t)
       if castTimerWindow.ripples then
         for i, r in ipairs(castTimerWindow.ripples) do
           local phase = ((t*1.9)+(i*.18)) % 1
-          r:SetSize(14 + phase*20, 5 + phase*6)
+          r:SetSize(16 + phase*28, 2)
           r:SetAlpha((1-phase) * (0.18 - i*0.03))
           r:ClearAllPoints()
           r:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -12)
