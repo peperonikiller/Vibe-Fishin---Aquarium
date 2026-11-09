@@ -3124,7 +3124,7 @@ local function buildChamber()
     journalToggle.text:SetText('JOURNAL')
     local count=#swimmingFish
     content:SetHeight(math.max(1,count*29+3))
-    panel.header:SetText(('AQUARIUM RESIDENTS  (%d)'):format(count))
+    panel.header:SetText(('FISH COLLECTION  (%d)'):format(count))
     if count==0 then panel.subtitle:SetText('No fish in the aquarium')
     else panel.subtitle:SetText('Hover for happiness, hunger and cooking') end
     for i,f in ipairs(swimmingFish) do
@@ -3492,7 +3492,7 @@ local function buildSettings()
   optionsWindow.sliders = {}
   optionsWindow.pages = {}
   optionsWindow.tabs = {}
-  local names = {'Fishing', 'Aquarium', 'Cinematics', 'Display', 'Performance', 'Themes'}
+  local names = {'Fishing', 'Aquarium', 'Cinematics', 'Display', 'Performance', 'Theme'}
   local descriptions = {
     'Pole reminders, bait and player actions',
     'Your aquarium, fish behavior and layout',
@@ -3683,6 +3683,7 @@ local function buildSettings()
     for _,entry in ipairs(self.themeCards) do
       local pal=aquariumController.themePalettes[entry.key]
       local selected=entry.key==characterSettings.themeID
+      if entry.button.gloss then entry.button.gloss:SetAlpha(selected and .23 or .06) end
       entry.button:SetBackdropBorderColor(unpack(selected and pal.accent or aquariumController.currentTheme().border))
       entry.name:SetTextColor(unpack(selected and pal.accent or aquariumController.currentTheme().text))
       entry.description:SetTextColor(unpack(aquariumController.currentTheme().muted))
@@ -4793,6 +4794,20 @@ SlashCmdList.VIBEFISHIN = function(msg)
     aquariumController.lastCaughtResident=nil
     revealCatch(6291,1,'|Hitem:6291::::::::|h[Raw Brilliant Smallfish]|h')
     say('Preview test launched. Enable aquarium display to see the icon transfer.')
+  elseif msg == 'theme' then
+    if optionsWindow then
+      optionsWindow:Show()
+      if optionsWindow.activatePage then optionsWindow.activatePage(6) end
+    end
+  elseif msg:match('^theme%s+') then
+    local selected=msg:match('^theme%s+([%w_]+)')
+    if selected and aquariumController.themePalettes[selected] then
+      characterSettings.themeID=selected
+      aquariumController.applyTheme()
+      say('Theme: '..aquariumController.currentTheme().name)
+    else
+      say('Available: '..table.concat(aquariumController.themeOrder,', '))
+    end
   elseif msg == 'timer' then
     if not active then startFishing(false) end
     if characterSettings.showTimer ~= true then characterSettings.showTimer = true end
