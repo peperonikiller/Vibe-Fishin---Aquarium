@@ -1,4 +1,4 @@
--- VibeFishin v3.0.4 - WoW Forever (Interface 16001)
+-- VibeFishin v4.0.0 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -83,6 +83,7 @@ local EMPTY = {}
 -- ============================================================================
 local defaults = {
   welcome = false,
+  themeID = 'abyss',
   autoPole = true,
   autoPoleDetect = false,
   autoBait = true,
@@ -185,6 +186,109 @@ local function ui(parent, w, h, point, rel, dx, dy)
   return f
 end
 
+-- v4 visual design system. All palettes are built from WoW-safe color values.
+-- The Classic palette references Blizzard's own dialog artwork (not bundled).
+aquariumController.themePalettes = {
+  abyss={name='Abyss',description='Deep ocean teal and luminous sea glass',
+    border={.18,.66,.71,1},panel={.018,.063,.090,.97},header={.035,.16,.20,.98},
+    button={.055,.20,.25,1},hover={.09,.34,.39,1},accent={.35,.92,.86,1},
+    text={.89,.98,.96,1},muted={.51,.77,.78,1},water={.015,.39,.47,.35},gold={.95,.76,.42,1}},
+  midnight={name='Midnight',description='Minimal charcoal and cool electric blue',
+    border={.25,.32,.45,1},panel={.018,.022,.036,.98},header={.045,.052,.079,.99},
+    button={.075,.09,.14,1},hover={.13,.18,.27,1},accent={.52,.72,1,1},
+    text={.92,.94,1,1},muted={.58,.64,.78,1},water={.08,.15,.28,.28},gold={.65,.78,1,1}},
+  classic={name='WoW Classic',description='Blizzard parchment and antique gold frame',
+    border={.75,.56,.28,1},panel={.13,.095,.06,.98},header={.23,.15,.075,.98},
+    button={.22,.15,.085,1},hover={.38,.27,.14,1},accent={1,.82,.42,1},
+    text={1,.89,.68,1},muted={.78,.68,.50,1},water={.12,.29,.35,.27},gold={1,.78,.34,1},blizzard=true},
+  coral={name='Coral Reef',description='Warm sunset coral and tropical jade',
+    border={.96,.52,.48,1},panel={.11,.055,.080,.98},header={.27,.095,.13,.98},
+    button={.25,.11,.16,1},hover={.38,.17,.20,1},accent={1,.70,.57,1},
+    text={1,.94,.89,1},muted={.91,.70,.70,1},water={.04,.45,.40,.29},gold={1,.85,.45,1}},
+  emerald={name='Emerald Grotto',description='Forest greens and luminous jade',
+    border={.22,.62,.46,1},panel={.035,.080,.062,.98},header={.065,.19,.13,.98},
+    button={.075,.23,.17,1},hover={.11,.37,.26,1},accent={.49,.98,.68,1},
+    text={.89,1,.90,1},muted={.58,.78,.65,1},water={.045,.35,.23,.31},gold={.85,.98,.56,1}},
+  arcane={name='Arcane',description='Violet magic and mana-blue highlights',
+    border={.54,.41,.86,1},panel={.055,.038,.10,.98},header={.11,.070,.22,.98},
+    button={.15,.085,.24,1},hover={.26,.15,.38,1},accent={.76,.59,1,1},
+    text={.94,.89,1,1},muted={.69,.61,.85,1},water={.20,.16,.48,.29},gold={.93,.74,1,1}},
+  frost={name='Frostbound',description='Arctic blue and silver ice',
+    border={.47,.76,.90,1},panel={.033,.085,.14,.98},header={.08,.22,.31,.98},
+    button={.10,.27,.35,1},hover={.15,.38,.45,1},accent={.74,.96,1,1},
+    text={.94,.98,1,1},muted={.69,.84,.92,1},water={.13,.53,.69,.31},gold={.91,.96,1,1}},
+  sunset={name='Sunken Sunset',description='Burnished copper and amber ocean',
+    border={.76,.43,.27,1},panel={.12,.060,.054,.98},header={.24,.11,.075,.98},
+    button={.25,.13,.095,1},hover={.39,.22,.13,1},accent={1,.69,.38,1},
+    text={1,.93,.81,1},muted={.86,.69,.55,1},water={.22,.23,.29,.32},gold={1,.82,.44,1}}
+}
+aquariumController.themeOrder={'abyss','midnight','classic','coral','emerald','arcane','frost','sunset'}
+aquariumController.themeFrames={}
+aquariumController.themeButtons={}
+aquariumController.currentTheme=function()
+  return aquariumController.themePalettes[(characterSettings and characterSettings.themeID) or 'abyss']
+    or aquariumController.themePalettes.abyss
+end
+aquariumController.styleThemeFrame=function(frame,role)
+  if not frame or not frame.SetBackdrop then return end
+  local p=aquariumController.currentTheme()
+  local edge=p.border
+  local fill=(role=='button') and p.button or p.panel
+  if role=='glass' then fill=p.water end
+  if p.blizzard and role~='glass' then
+    frame:SetBackdrop({bgFile='Interface\\DialogFrame\\UI-DialogBox-Background',
+      edgeFile='Interface\\DialogFrame\\UI-DialogBox-Border',tile=true,tileSize=32,
+      edgeSize=22,insets={left=8,right=8,top=8,bottom=8}})
+    frame:SetBackdropColor(1,1,1,1)
+    frame:SetBackdropBorderColor(1,.87,.67,1)
+  else
+    frame:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',
+      edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=2,
+      insets={left=2,right=2,top=2,bottom=2}})
+    frame:SetBackdropColor(unpack(fill))
+    frame:SetBackdropBorderColor(unpack(edge))
+  end
+end
+aquariumController.applyTheme=function()
+  local p=aquariumController.currentTheme()
+  for frame,role in pairs(aquariumController.themeFrames) do
+    if frame then aquariumController.styleThemeFrame(frame,role) end
+  end
+  for button in pairs(aquariumController.themeButtons) do
+    if button and button.text then button.text:SetTextColor(unpack(p.text)) end
+  end
+  if aquariumWindow then
+    if aquariumWindow.header then aquariumWindow.header:SetColorTexture(unpack(p.header)) end
+    if aquariumWindow.trim then aquariumWindow.trim:SetColorTexture(unpack(p.accent)) end
+    if aquariumWindow.water then aquariumWindow.water:SetColorTexture(unpack(p.water)) end
+    if aquariumWindow.title then aquariumWindow.title:SetTextColor(unpack(p.text)) end
+    if aquariumWindow.status then aquariumWindow.status:SetTextColor(unpack(p.accent)) end
+    if aquariumWindow.count then aquariumWindow.count:SetTextColor(unpack(p.muted)) end
+    if aquariumWindow.footer then aquariumWindow.footer:SetColorTexture(unpack(p.header)) end
+    if aquariumWindow.footerLine then aquariumWindow.footerLine:SetColorTexture(unpack(p.accent)) end
+    if aquariumWindow.roster then
+      if aquariumWindow.roster.header then aquariumWindow.roster.header:SetTextColor(unpack(p.text)) end
+      if aquariumWindow.roster.subtitle then aquariumWindow.roster.subtitle:SetTextColor(unpack(p.muted)) end
+      if aquariumWindow.roster.headBand then aquariumWindow.roster.headBand:SetColorTexture(unpack(p.header)) end
+    end
+  end
+  if optionsWindow then
+    if optionsWindow.head then optionsWindow.head:SetColorTexture(unpack(p.header)) end
+    if optionsWindow.heading then optionsWindow.heading:SetTextColor(unpack(p.text)) end
+    if optionsWindow.footer then optionsWindow.footer:SetColorTexture(unpack(p.header)) end
+    if optionsWindow.themeName then optionsWindow.themeName:SetText(p.name) end
+    if optionsWindow.activatePage and optionsWindow.activePage then
+      optionsWindow.activatePage(optionsWindow.activePage)
+    end
+  end
+  if aquariumController.tempWidget then
+    if aquariumController.tempWidget.readout then aquariumController.tempWidget.readout:SetTextColor(unpack(p.gold)) end
+  end
+  if aquariumWindow and aquariumWindow.roster and aquariumWindow.roster:IsShown() and aquariumController.renderFishRoster then
+    aquariumController.renderFishRoster()
+  end
+end
+
 -- Applies a frame backdrop and compatible border colors.
 local function backdrop(f, border, fill)
   if not f or not f.SetBackdrop then return end
@@ -196,6 +300,7 @@ local function backdrop(f, border, fill)
   })
   f:SetBackdropColor(unpack(fill or {0.04, 0.11, 0.14, 0.94}))
   f:SetBackdropBorderColor(unpack(border or {0.50, 0.73, 0.69, 1}))
+  if aquariumController.themeFrames then aquariumController.themeFrames[f]='panel' end
 end
 
 -- Applies the configured opacity to a UI frame.
@@ -220,6 +325,8 @@ local function btn(p, txt, w, h, x, y, cb)
   b:SetSize(w, h)
   b:SetPoint('TOPLEFT', p, 'TOPLEFT', x, y)
   backdrop(b, {0.47, 0.71, 0.67, 1}, {0.08, 0.20, 0.22, 1})
+  aquariumController.themeFrames[b]='button'
+  aquariumController.themeButtons[b]=true
   local gloss = b:CreateTexture(nil, 'ARTWORK')
   gloss:SetPoint('TOPLEFT', 1, -1)
   gloss:SetPoint('TOPRIGHT', -1, -1)
@@ -232,11 +339,14 @@ local function btn(p, txt, w, h, x, y, cb)
   b.text = l
   b:SetScript('OnClick', cb)
   b:SetScript('OnEnter', function(self)
-    self:SetBackdropColor(0.12, 0.30, 0.32, 1)
+    local p=aquariumController.currentTheme()
+    if not p.blizzard then self:SetBackdropColor(unpack(p.hover)) end
   end)
   b:SetScript('OnLeave', function(self)
-    self:SetBackdropColor(0.08, 0.20, 0.22, 1)
+    aquariumController.styleThemeFrame(self,'button')
   end)
+  aquariumController.styleThemeFrame(b,'button')
+  l:SetTextColor(unpack(aquariumController.currentTheme().text))
   return b
 end
 
