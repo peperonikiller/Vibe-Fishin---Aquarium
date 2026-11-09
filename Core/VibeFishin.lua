@@ -226,6 +226,7 @@ aquariumController.themeOrder={'abyss','midnight','classic','coral','emerald','a
 aquariumController.themeFrames={}
 aquariumController.themeButtons={}
 aquariumController.themeAccentTextures={}
+aquariumController.themeTextObjects={}
 aquariumController.currentTheme=function()
   return aquariumController.themePalettes[(characterSettings and characterSettings.themeID) or 'abyss']
     or aquariumController.themePalettes.abyss
@@ -236,17 +237,18 @@ aquariumController.styleThemeFrame=function(frame,role)
   local edge=p.border
   local fill=(role=='button') and p.button or p.panel
   if role=='glass' then fill=p.water end
-  if p.blizzard and role~='glass' then
+  if p.blizzard and role=='panel' then
     frame:SetBackdrop({bgFile='Interface\\DialogFrame\\UI-DialogBox-Background',
       edgeFile='Interface\\DialogFrame\\UI-DialogBox-Border',tile=true,tileSize=32,
       edgeSize=22,insets={left=8,right=8,top=8,bottom=8}})
     frame:SetBackdropColor(1,1,1,1)
     frame:SetBackdropBorderColor(1,.87,.67,1)
   else
-    frame:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',
+    frame:SetBackdrop({bgFile=(p.blizzard and role=='button') and 'Interface\\Buttons\\UI-Panel-Button-Up' or 'Interface\\Buttons\\WHITE8X8',
       edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=2,
       insets={left=2,right=2,top=2,bottom=2}})
-    frame:SetBackdropColor(unpack(fill))
+    if p.blizzard and role=='button' then frame:SetBackdropColor(1,1,1,1)
+    else frame:SetBackdropColor(unpack(fill)) end
     frame:SetBackdropBorderColor(unpack(edge))
   end
 end
@@ -258,9 +260,19 @@ aquariumController.applyTheme=function()
   for button in pairs(aquariumController.themeButtons) do
     if button and button.text then button.text:SetTextColor(unpack(p.text)) end
   end
-  for texture in pairs(aquariumController.themeAccentTextures) do
-    if texture then texture:SetColorTexture(p.accent[1],p.accent[2],p.accent[3],.19) end
+  for texture,alpha in pairs(aquariumController.themeAccentTextures) do
+    if texture then texture:SetColorTexture(p.accent[1],p.accent[2],p.accent[3],type(alpha)=='number' and alpha or .19) end
   end
+  for font,role in pairs(aquariumController.themeTextObjects) do
+    if font then font:SetTextColor(unpack(p[role] or p.text)) end
+  end
+  if catchRevealWindow then
+    if catchRevealWindow.header then catchRevealWindow.header:SetColorTexture(unpack(p.header)) end
+    if catchRevealWindow.rule then catchRevealWindow.rule:SetColorTexture(unpack(p.accent)) end
+    if catchRevealWindow.eyebrow then catchRevealWindow.eyebrow:SetTextColor(unpack(p.gold)) end
+    if catchRevealWindow.title then catchRevealWindow.title:SetTextColor(unpack(p.accent)) end
+  end
+  if welcome and welcome.head then welcome.head:SetColorTexture(unpack(p.header)) end
   if aquariumWindow then
     if aquariumWindow.header then aquariumWindow.header:SetColorTexture(unpack(p.header)) end
     if aquariumWindow.trim then aquariumWindow.trim:SetColorTexture(unpack(p.accent)) end
@@ -350,6 +362,7 @@ local function btn(p, txt, w, h, x, y, cb)
   l:SetFont('Fonts\\FRIZQT__.TTF', 11, 'OUTLINE')
   l:SetText(txt)
   b.text = l
+  b.gloss = gloss
   b:SetScript('OnClick', cb)
   b:SetScript('OnEnter', function(self)
     local p=aquariumController.currentTheme()
@@ -385,6 +398,8 @@ local function checkButton(p, txt, x, y, key, onChange)
   title:SetPoint('LEFT', square, 'RIGHT', 9, 0)
   title:SetTextColor(0.89,0.96,0.90)
   title:SetText(txt)
+  aquariumController.themeTextObjects[title]='text'
+  aquariumController.themeAccentTextures[checked]=.90
   function b:Refresh()
     checked:SetShown(not not characterSettings[key])
     square:SetBackdropColor(characterSettings[key] and 0.07 or 0.02, characterSettings[key] and 0.27 or 0.08, characterSettings[key] and 0.25 or 0.1, 1)
@@ -404,11 +419,13 @@ local function simpleSlider(parent, title, x, y, width, low, high, step, key, fm
   name:SetPoint('TOPLEFT', 0, 0)
   name:SetText(title)
   name:SetTextColor(0.92, 0.95, 0.88)
+  aquariumController.themeTextObjects[name]='text'
 
   local valueText = holder:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
   valueText:SetFont('Fonts\\FRIZQT__.TTF', 11, 'OUTLINE')
   valueText:SetPoint('TOPRIGHT', 0, 0)
   valueText:SetTextColor(0.52, 0.98, 0.87)
+  aquariumController.themeTextObjects[valueText]='accent'
 
   local bar = CreateFrame('Button', nil, holder, 'BackdropTemplate')
   bar:SetSize(width, 12)
@@ -419,10 +436,12 @@ local function simpleSlider(parent, title, x, y, width, low, high, step, key, fm
   fill:SetPoint('LEFT', 1, 0)
   fill:SetHeight(10)
   fill:SetColorTexture(0.17, 0.80, 0.75, 0.62)
+  aquariumController.themeAccentTextures[fill]=.72
 
   local thumb = CreateFrame('Frame', nil, bar, 'BackdropTemplate')
   thumb:SetSize(12, 20)
   backdrop(thumb, {0.72, 0.88, 0.82, 1}, {0.14, 0.33, 0.34, 1})
+  aquariumController.themeFrames[thumb]='button'
 
   local function render(value)
     local pct = 0
@@ -1733,11 +1752,13 @@ local function buildCatchPreview()
   header:SetPoint('TOPLEFT',2,-2)
   header:SetPoint('TOPRIGHT',-2,-2)
   header:SetHeight(25)
+  f.header=header
   local topLine=f:CreateTexture(nil,'ARTWORK')
   topLine:SetColorTexture(.93,.72,.38,.8)
   topLine:SetPoint('TOPLEFT',2,-27)
   topLine:SetPoint('TOPRIGHT',-2,-27)
   topLine:SetHeight(1)
+  f.rule=topLine
   f.eyebrow=label(f,'✦   THE DAILY CATCH   ✦',12,148,-7,.98,.84,.52)
 
   local medallion=ui(f,112,112,'LEFT',f,14,-7)
@@ -3421,6 +3442,7 @@ local function buildWelcome()
   head:SetPoint('TOPLEFT', 2, -2)
   head:SetPoint('TOPRIGHT', -2, -2)
   head:SetHeight(94)
+  welcome.head=head
 
   local wave = welcome:CreateTexture(nil, 'ARTWORK')
   wave:SetPoint('TOPLEFT', 18, -74)
@@ -3537,7 +3559,8 @@ local function buildSettings()
     strip:SetPoint('TOPLEFT',page,'TOPLEFT',7,y+2)
     strip:SetPoint('TOPRIGHT',page,'TOPRIGHT',-7,y+2)
     strip:SetHeight(24)
-    label(page,string.upper(name),11,15,y-3,.97,.79,.44)
+    local sectionTitle=label(page,string.upper(name),11,15,y-3,.97,.79,.44)
+    aquariumController.themeTextObjects[sectionTitle]='gold'
   end
   local function addCheck(page,name,key,y,callback)
     local b=checkButton(page,name,12,y,key,callback)
