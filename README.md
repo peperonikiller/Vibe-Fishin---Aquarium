@@ -1,6 +1,6 @@
 # Vibe - Fishing Aquarium
 
-**v4.0.0 · WoW Forever · By Pepkilz**
+**v4.0.1 · WoW Forever · By Pepkilz**
 
 A living fishing aquarium inside World of Warcraft: Forever. Collect unique fish, care for them, and enjoy animated catches.
 
@@ -9,7 +9,7 @@ A living fishing aquarium inside World of Warcraft: Forever. Collect unique fish
 - **Aquarium:** Animated fish, feeding, temperature, decorations and personalities.
 - **Collection:** Rare variants, fish encyclopedia, achievements and hover-to-find highlights.
 - **Fishing:** Cast timer, catch previews and animated fish transfers.
-- **New in v4:** Redesigned aquarium, fish/journal drawer and settings with **eight live themes**: Abyss, Midnight, WoW Classic, Coral Reef, Emerald Grotto, Arcane, Frostbound and Sunken Sunset.
+- **New in v4:** Redesigned aquarium with an aligned control footer, fish/journal drawer and settings with **eight live themes**: Abyss, Midnight, WoW Classic, Coral Reef, Emerald Grotto, Arcane, Frostbound and Sunken Sunset.
 
 ## Install
 
