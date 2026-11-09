@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.2] — Catch bobber handoff
+
+- On fish catches, the timer bobber travels to the catch-preview icon and accompanies it to the aquarium.
+- Reuses the existing catch-flight animation update budget; cosmetic only, with no item interactions.
+- Bobber disappears upon water impact and resets safely between catches.
+
+
 ## [3.0.1] — Living Waters: roster hotfix and WowUpHub packaging
 
 - Fixed unqualified rarity, variant, and personality table references in the journal and resident tooltips.
