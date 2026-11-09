@@ -1,4 +1,4 @@
--- VibeFishin v3.0.2 - WoW Forever (Interface 16001)
+-- VibeFishin v3.0.3 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -574,7 +574,15 @@ updateStatus = function()
       aquariumWindow.status:SetText(active and '● FISHING MODE ACTIVE' or '○ AQUARIUM DISPLAY')
     end
   end
-  if castTimerWindow then castTimerWindow:SetShown(active and characterSettings.showTimer and casting) end
+  if castTimerWindow then
+    local clock = GetTime and GetTime() or now
+    -- WoW ends the channel before the loot event. Keep the complete rod/timer
+    -- visible during that gap and throughout a confirmed catch handoff.
+    local keepTimer = (active and casting)
+      or (aquariumController.timerGraceUntil and clock < aquariumController.timerGraceUntil)
+      or aquariumController.catchTimerHandoff
+    castTimerWindow:SetShown(characterSettings.showTimer and not not keepTimer)
+  end
 end
 
 -- ============================================================================
@@ -1692,6 +1700,15 @@ local function revealCatch(id, count, itemLink)
   catchRevealWindow:SetPoint('TOP', UIParent, 'TOP', 0, -130)
   catchRevealWindow:SetAlpha(0)
   catchRevealWindow:Show()
+  -- Keep the complete fishing rod, clock, and bobber displayed until landing.
+  -- The UI-only handoff should never outlive the catch or require an active cast.
+  aquariumController.catchTimerHandoff = characterSettings.showTimer == true
+  aquariumController.timerGraceUntil = nil
+  if castTimerWindow and characterSettings.showTimer then
+    if castTimerWindow.clock then castTimerWindow.clock:SetText('CAUGHT!') end
+    if castTimerWindow.sub then castTimerWindow.sub:SetText('sending to aquarium...') end
+  end
+  if updateStatus then updateStatus() end
   -- The timer may already have hidden after loot, but its bobber keeps
   -- its last screen position for the transition to the catch-preview fish.
   if aquariumController.beginBobberHandoff then aquariumController.beginBobberHandoff() end
@@ -2194,6 +2211,8 @@ end
 -- Removes the cosmetic transfer bobber when the catch enters the water.
 aquariumController.finishBobberHandoff = function()
   if aquariumController.handoffBobber then aquariumController.handoffBobber:Hide() end
+  aquariumController.catchTimerHandoff = nil
+  if updateStatus then updateStatus() end
 end
 
 -- Moves a caught fish from the reveal window toward the aquarium.
@@ -3493,12 +3512,19 @@ local function setCast(isOn, startTime, duration)
       updateStatus()
       return
     end
+    aquariumController.timerGraceUntil = nil
+    aquariumController.catchTimerHandoff = nil
     casting = true
     activeCastEnd = startTime + duration
     castTimerWindow.start = startTime
     castTimerWindow.duration = duration
     if characterSettings and characterSettings.autoBait and not mainHandHasLure() then adviseBait(true) end
   else
+    -- Leave the full widget visible briefly so a real fish-loot event can
+    -- take over without the rod disappearing between channel stop and loot.
+    if casting and characterSettings and characterSettings.showTimer then
+      aquariumController.timerGraceUntil = (GetTime and GetTime() or now) + 2
+    end
     casting = false
   end
   updateStatus()
@@ -4192,6 +4218,11 @@ local function update(_, elapsed)
     updateFishSurvival(now)
   end
 
+  -- Hide an unmatched cast timer after its short grace period expires.
+  if aquariumController.timerGraceUntil and now >= aquariumController.timerGraceUntil then
+    aquariumController.timerGraceUntil = nil
+    if updateStatus then updateStatus() end
+  end
   -- The bobber timer has its own visibility and can animate with a hidden tank.
   if tankVisible or (castTimerWindow and castTimerWindow:IsShown()) then
     updateFishVisuals(now)
