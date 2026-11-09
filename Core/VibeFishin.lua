@@ -1,4 +1,4 @@
--- VibeFishin v2.0.2 - WoW Forever (Interface 16001)
+-- VibeFishin v3.0.1 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -118,7 +118,11 @@ local defaults = {
   timerX = 0,
   timerY = -125,
   timerScale = 1.0,
-  fishNames = {},
+  -- v3 record schema: one immutable ID per caught aquarium resident.
+  nextResidentID = 0,
+  residents = {},
+  bagResidents = {},
+  catchJournal = { species = {}, achievements = {}, totalCaught = 0, rarestQuality = 1 },
   catches = {},
   deadFish = {},
   total = 0,
@@ -1290,7 +1294,7 @@ repopulatePlants = function()
   end
 end
 
--- Pet names remain stable across aquarium refreshes for each species slot.
+-- Name pool for individually persisted fish records.
 aquariumController.fishPetNames = {
   'Frank', 'Joe', 'Jeff', 'Fish McFisherson', 'Fishy', 'Bubbles',
   'Captain Gills', 'Finn Diesel', 'Sir Swimsalot', 'Nibbles',
@@ -1299,33 +1303,155 @@ aquariumController.fishPetNames = {
   'Linda', 'Fred', 'Finnegan', 'Tiny', 'Mr. Wiggles',
   'Bartholomew', 'Doris', 'Squiggles', 'Steve', 'Bobber',
 }
--- Assigns and persists a unique generated name per fish slot.
-aquariumController.assignFishName = function(f, speciesIndex)
-  if not f or not characterSettings then return end
-  characterSettings.fishNames = characterSettings.fishNames or {}
-  local key=tostring(f.species)..':'..tostring(speciesIndex or 1)
-  if not characterSettings.fishNames[key] then
-    characterSettings.fishNames[key] = aquariumController.fishPetNames[math.random(1,#aquariumController.fishPetNames)]
+-- V3 fish records are data-first; UI Frames are disposable views of these records.
+-- A simulated variant is separate from the WoW item's actual quality and
+-- never creates a virtual or real inventory item.
+aquariumController.fishRarityNames = {'Common','Uncommon','Rare','Epic','Legendary'}
+aquariumController.fishRarityColors = {'|cffb6c5ca','|cff51d975','|cff549fff','|cffba68ff','|cffffb947'}
+aquariumController.fishPersonalityNames = {'Curious','Social','Forager','Shy','Lazy','Playful'}
+aquariumController.fishVariantNames = {'Normal','Golden','Albino','Glowing','Giant'}
+aquariumController.fishMilestones = {
+  {key='first', name='First Catch', goal=1, type='total'},
+  {key='ten', name='Getting Hooked', goal=10, type='total'},
+  {key='fifty', name='Dedicated Angler', goal=50, type='total'},
+  {key='hundred', name='Master Angler', goal=100, type='total'},
+  {key='species5', name='Five Fin Friends', goal=5, type='species'},
+  {key='species20', name='Aquatic Naturalist', goal=20, type='species'},
+  {key='rare', name='Rare Encounter', goal=1, type='rare'},
+  {key='gold', name='Golden Catch', goal=1, type='gold'},
+}
+
+-- Creates a stable ID and randomized rarity, variant and personality once.
+aquariumController.newResident = function(species, link)
+  characterSettings.nextResidentID = (characterSettings.nextResidentID or 0) + 1
+  local roll = math.random(1,10000)
+  local rarity = roll > 9995 and 5 or roll > 9960 and 4 or roll > 9800 and 3 or roll > 8400 and 2 or 1
+  local variantRoll = math.random(1,10000)
+  local variant = variantRoll > 9990 and 4 or variantRoll > 9950 and 3 or variantRoll > 9900 and 2 or variantRoll > 9700 and 5 or 1
+  local petName = aquariumController.fishPetNames[math.random(1,#aquariumController.fishPetNames)]
+  return {
+    uid = 'VF-'..tostring(characterSettings.nextResidentID), species = species,
+    link = link, name = petName, rarity = rarity, variant = variant,
+    personality = math.random(1,#aquariumController.fishPersonalityNames),
+    happiness = 100, hunger = 100, temperatureExposure = 0,
+    lifeStage = 'adult', bornAt = (time and time() or 0),
+    lastFedAt = (time and time() or 0), fedUntilAt = 0, deathState = nil,
+  }
+end
+
+-- Counts unique caught species; unlike resident count, it never changes on rebuild.
+aquariumController.journalSpeciesCount = function()
+  local species = characterSettings.catchJournal and characterSettings.catchJournal.species or {}
+  local n = 0
+  for _ in pairs(species) do n = n + 1 end
+  return n
+end
+
+-- Awards discoveries and named milestones only for actual catches.
+aquariumController.recordFishDiscovery = function(resident)
+  local journal = characterSettings.catchJournal
+  journal.totalCaught = (journal.totalCaught or 0) + 1
+  local speciesKey = tostring(resident.species)
+  local entry = journal.species[speciesKey] or {caught=0,bestRarity=1,variants={}}
+  entry.caught = entry.caught + 1
+  entry.bestRarity = math.max(entry.bestRarity or 1, resident.rarity)
+  entry.variants[resident.variant] = true
+  entry.lastCaughtAt = (time and time() or 0)
+  journal.species[speciesKey] = entry
+  journal.rarestQuality = math.max(journal.rarestQuality or 1,resident.rarity)
+  local count = aquariumController.journalSpeciesCount()
+  local milestones = journal.achievements
+  for _,goal in ipairs(aquariumController.fishMilestones) do
+    local achieved = (goal.type=='total' and journal.totalCaught >= goal.goal)
+      or (goal.type=='species' and count >= goal.goal)
+      or (goal.type=='rare' and resident.rarity >= 3)
+      or (goal.type=='gold' and resident.variant == 2)
+    if achieved and not milestones[goal.key] then
+      milestones[goal.key] = (time and time() or 0)
+      if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage('|cff48d9dcVibe Achievement:|r '..goal.name)
+      end
+    end
   end
-  f.petName=characterSettings.fishNames[key]
-  f.petKey=key
+end
+
+-- Saves runtime welfare into the resident record. Use wall-clock stamps for
+-- reload safety; GetTime() is only a session-relative animation clock.
+aquariumController.saveResidentFromFrame = function(f,t)
+  if not f or not f.resident then return end
+  local record = f.resident
+  record.happiness = f.deadState and 0 or (f.happiness or record.happiness)
+  record.hunger = f.hunger or record.hunger
+  record.temperatureExposure = f.temperatureExposure or 0
+  record.deathState = f.deadState
+  record.deathCause = f.deathCause
+  record.x, record.y = f.x, f.y
+  local epoch = (time and time() or 0)
+  record.lastFedAt = epoch - math.max(0,(t or 0)-(f.lastFed or t or 0))
+  record.fedUntilAt = epoch + math.max(0,(f.fedUntil or 0)-(t or 0))
+  if f.deadState then
+    record.deadAt = epoch - math.max(0,(t or 0)-(f.deadAt or t or 0))
+  end
+end
+
+-- Binds an individual saved identity and welfare state to a visual fish.
+aquariumController.bindResident = function(f,record)
+  f.resident = record
+  f.uid = record.uid
+  f.petName = record.name
+  f.rarity, f.variant, f.personality = record.rarity, record.variant, record.personality
+  f.lifeStage = record.lifeStage
+  -- Personality changes behavior without extra O(N²) neighbor scans.
+  if f.personality == 5 then f.speed = f.speed*0.65 end -- Lazy
+  if f.personality == 6 then f.speed = f.speed*1.18 end -- Playful
+  if f.personality == 4 then f.nextWaypoint = (GetTime and GetTime() or 0)+10 end -- Shy
+  f.temperatureExposure = record.temperatureExposure or 0
+  f.happiness, f.hunger = record.happiness or 100, record.hunger or 100
+  local gameNow, epoch = (GetTime and GetTime() or 0), (time and time() or 0)
+  f.lastFed = gameNow - math.max(0,epoch-(record.lastFedAt or epoch))
+  f.fedUntil = gameNow + math.max(0,(record.fedUntilAt or 0)-epoch)
+  f.deadState = record.deathState
+  f.deathCause = record.deathCause
+  if f.deadState then
+    f.entryElapsed=nil
+    f.deadAt = gameNow - math.max(0,epoch-(record.deadAt or epoch))
+    f.skeletonAt = f.deadAt + 300
+    f.deathX = record.x or f.x
+  end
+  if record.x and record.y then
+    f.x, f.y = record.x, record.y
+    f:ClearAllPoints()
+    f:SetPoint('BOTTOMLEFT',aquariumCanvas,'BOTTOMLEFT',f.x,f.y)
+  end
+  if f.variant == 2 then f.icon:SetVertexColor(1,.83,.24,1)
+  elseif f.variant == 3 then f.icon:SetVertexColor(.94,.98,1,1)
+  elseif f.variant == 4 then f.icon:SetVertexColor(.41,.92,1,1)
+  else f.icon:SetVertexColor(1,1,1,1) end
+  if f.variant == 5 then f:SetScale(1.17) else f:SetScale(1) end
+  f.rareBorder:SetShown((f.rarity or 1)>=3 or premiumFishIDs[f.species]~=nil)
+  if f.deadState == 'skeleton' then
+    f.icon:SetTexture('Interface\\Icons\\INV_Misc_Bone_ElfSkull_01')
+  end
+end
+
+-- Assigns the identity of a persistent resident to an animated fish frame.
+aquariumController.assignFishName = function(f, speciesIndex, record)
+  if not f or not characterSettings then return end
+  record = record or aquariumController.newResident(f.species,nil)
+  aquariumController.bindResident(f, record)
 end
 
 -- Builds displayed fish from inventory/catches while restoring current state.
 repopulateAquarium = function(skipEntrance)
   local preserve = skipEntrance == 'preserve'
   local oldFish = {}
-  for _, f in ipairs(swimmingFish) do
-    -- Dead residents are reconstructed from the persistent death records.
-    -- Never reuse a dead frame as a living fish after RESET or bag refresh.
-    if not f.deadState then
-      local id = f.species
-      oldFish[id] = oldFish[id] or {}
-      oldFish[id][#oldFish[id]+1] = {
-        x=f.x, y=f.y, targetX=f.targetX, targetY=f.targetY,
-        vx=f.vx, vy=f.vy, heading=f.heading, nextWaypoint=f.nextWaypoint,
-        fedUntil=f.fedUntil, entryElapsed=f.entryElapsed,
-        lastFed=f.lastFed, temperatureExposure=f.temperatureExposure
+  local gameNow=GetTime and GetTime() or 0
+  for _,f in ipairs(swimmingFish) do
+    aquariumController.saveResidentFromFrame(f,gameNow)
+    if f.uid then
+      oldFish[f.uid] = {
+        x=f.x,y=f.y,targetX=f.targetX,targetY=f.targetY,
+        vx=f.vx,vy=f.vy,heading=f.heading,
       }
     end
   end
@@ -1352,39 +1478,45 @@ repopulateAquarium = function(skipEntrance)
   for i=1,math.max(10,math.floor(w*h/3200)) do
     makeBubble(aquariumCanvas,12+(i*43)%math.max(40,w-20),6+(i*23)%math.max(30,h-10),5+(i%4),.18+(i%5)*.03,6+(i%3)*3)
   end
-  local sources = characterSettings.inventoryFish and inventoryFishList() or characterSettings.catches
+  -- The aquarium is a view of stable records. Inventory mode reconciles
+  -- live bag counts to separate records without altering any WoW inventory.
   local entries, shown = {}, 0
-  local deadAtIndex = {}
   wipeTable(displayedFishEntries)
-  -- Bag inventory uses the dead-record subtraction inside inventoryFishList.
-  -- Session catches need the same subtraction to prevent duplicated corpses.
-  local unassignedDead = characterSettings.inventoryFish and {} or deadFishCountBySpecies()
-  for i=#sources,1,-1 do
-    local c=sources[i]
-    if c and isFishItem(c.id, c.link) then
-      local count = math.max(0,c.count or 1)
-      local removed = math.min(count,unassignedDead[c.id] or 0)
-      unassignedDead[c.id] = (unassignedDead[c.id] or 0) - removed
-      for j=1,count-removed do
-        entries[#entries+1]=c.id
-        displayedFishEntries[#displayedFishEntries+1]={id=c.id,count=1,link=c.link}
-        shown=shown+1
+  if characterSettings.inventoryFish then
+    local wanted = {}
+    for _, source in ipairs(inventoryFishList()) do
+      if isFishItem(source.id,source.link) then
+        wanted[source.id] = { count=source.count or 1, link=source.link }
       end
     end
+    local kept, current = {}, {}
+    for _,record in ipairs(characterSettings.bagResidents) do
+      local source = wanted[record.species]
+      local n = current[record.species] or 0
+      if source and n < source.count then
+        current[record.species]=n+1
+        kept[#kept+1]=record
+      end
+    end
+    for id,source in pairs(wanted) do
+      while (current[id] or 0) < source.count do
+        local record = aquariumController.newResident(id,source.link)
+        kept[#kept+1]=record
+        current[id]=(current[id] or 0)+1
+      end
+    end
+    characterSettings.bagResidents=kept
+    entries=kept
+  else
+    entries=characterSettings.residents
   end
-  if characterSettings.deadFish then
-    for _, dead in ipairs(characterSettings.deadFish) do
-      if dead and dead.id then
-        entries[#entries+1] = dead.id
-        displayedFishEntries[#displayedFishEntries+1] = { id = dead.id, count = 1, link = dead.link }
-        deadAtIndex[#entries] = dead
-        shown = shown + 1
-      end
-    end
+  shown=#entries
+  for _,record in ipairs(entries) do
+    displayedFishEntries[#displayedFishEntries+1]={id=record.species,count=1,link=record.link}
   end
   wipeTable(schoolTerritories)
   local seen = {}
-  for _,id in ipairs(entries) do if not seen[id] then seen[id]=true end end
+  for _,resident in ipairs(entries) do local id=resident.species; if not seen[id] then seen[id]=true end end
   local speciesIDs={}
   for id in pairs(seen) do speciesIDs[#speciesIDs+1]=id end
   table.sort(speciesIDs)
@@ -1398,35 +1530,21 @@ repopulateAquarium = function(skipEntrance)
     local cy = 0.5 + radius * math.sin(theta)
     schoolTerritories[id]={x=clamp(cx,0.12,0.88),y=clamp(cy,0.14,0.86)}
   end
-  local speciesSeen={}
-  for i,id in ipairs(entries) do
-    spawnFish(id,i,#entries)
-    speciesSeen[id]=(speciesSeen[id] or 0)+1
-    aquariumController.assignFishName(swimmingFish[#swimmingFish],speciesSeen[id])
-    local f = swimmingFish[#swimmingFish]
-    local saved = deadAtIndex[i] or (oldFish[id] and table.remove(oldFish[id],1))
-    if saved and f then
-      local mx=math.max(3,w-f.size-3)
-      local my=math.max(3,h-f.size-3)
-      f.lastFed=saved.lastFed or f.lastFed
-      f.deadState=saved.deadState
-      f.deadAt=saved.deadAt
-      f.skeletonAt=saved.skeletonAt
-      f.deathX=saved.deathX
-      f.temperatureExposure=saved.temperatureExposure or 0
-      f.deathCause=saved.deathCause
-      f.dbDeadRecorded=saved.dbDeadRecorded or saved.deadState ~= nil
-      if f.deadState=='skeleton' then
-        f.icon:SetTexture('Interface\\Icons\\INV_Misc_Bone_ElfSkull_01')
-        f.icon:SetTexCoord(.08,.92,.08,.92)
-      end
-      if preserve or saved.deadState then
-        local dy = saved.deadState and (saved.y or (saved.deadState=='dead' and (my-5) or math.max(6,my*0.26))) or saved.y
-        f.x=clamp(saved.x or mx*0.5,2,mx);f.y=clamp(dy or my*0.5,2,my)
+  for i,record in ipairs(entries) do
+    local id=record.species
+    local f=spawnFish(id,i,#entries)
+    if f then
+      aquariumController.assignFishName(f,i,record)
+      -- Only preserve current movement state for an identical resident ID.
+      local saved=oldFish[record.uid]
+      if saved and preserve then
+        local mx=math.max(3,w-f.size-3)
+        local my=math.max(3,h-f.size-3)
+        f.x=clamp(saved.x or f.x,2,mx)
+        f.y=clamp(saved.y or f.y,2,my)
         f.targetX=clamp(saved.targetX or f.targetX,2,mx)
         f.targetY=clamp(saved.targetY or f.targetY,2,my)
-        f.vx=saved.vx;f.vy=saved.vy;f.heading=saved.heading
-        f.nextWaypoint=saved.nextWaypoint;f.fedUntil=saved.fedUntil
+        f.vx=saved.vx; f.vy=saved.vy; f.heading=saved.heading
         f.entryElapsed=nil
         f:ClearAllPoints()
         f:SetPoint('BOTTOMLEFT',aquariumCanvas,'BOTTOMLEFT',f.x,f.y)
@@ -1450,7 +1568,7 @@ repopulateAquarium = function(skipEntrance)
     local suffix=characterSettings.inventoryFish and ('BAG FISH   %d DISPLAYED'):format(shown) or ('SESSION CATCHES   %d'):format(characterSettings.total or 0)
     aquariumWindow.count:SetText(suffix)
   end
-  if aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
+  if aquariumWindow and aquariumWindow.roster and aquariumWindow.roster:IsShown() and aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
 end
 
 -- A cinematic catch card inspired by the polished trophy reveals in western games.
@@ -1549,8 +1667,17 @@ local function revealCatch(id, count, itemLink)
   local shade=qualityPalette[quality] or qualityPalette[1]
   catchRevealWindow.name:SetText(name)
   catchRevealWindow.name:SetTextColor(shade[1],shade[2],shade[3])
-  catchRevealWindow.grade:SetText(qualityWords[quality] or 'FRESH CATCH')
-  catchRevealWindow.grade:SetTextColor(shade[1],shade[2],shade[3])
+  local caught = aquariumController.lastCaughtResident
+  if caught and caught.species == id then
+    local rarity = caught.rarity or 1
+    catchRevealWindow.grade:SetText(aquariumController.fishRarityNames[rarity]..' '..aquariumController.fishVariantNames[caught.variant or 1]..' • '..aquariumController.fishPersonalityNames[caught.personality or 1])
+    local rarityColors = {{.72,.78,.80},{.32,.88,.46},{.35,.66,1},{.74,.43,1},{1,.73,.29}}
+    local color = rarityColors[rarity]
+    catchRevealWindow.grade:SetTextColor(color[1],color[2],color[3])
+  else
+    catchRevealWindow.grade:SetText(qualityWords[quality] or 'FRESH CATCH')
+    catchRevealWindow.grade:SetTextColor(shade[1],shade[2],shade[3])
+  end
   catchRevealWindow.quantity:SetText('x'..tostring(count or 1))
   local imageIcon = (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or (GetItemIcon and GetItemIcon(id)) or icon
   catchRevealWindow.icon:SetTexture(imageIcon or 'Interface\\Icons\\INV_Misc_Fish_02')
@@ -2322,6 +2449,14 @@ local function addCatch(id, count, itemLink)
   arrivingFishItemID=(characterSettings.catchPreview and aquariumWindow and aquariumWindow:IsShown()) and id or nil
   characterSettings.total = (characterSettings.total or 0) + count
   characterSettings.catches[#characterSettings.catches + 1] = { id = id, count = count }
+  local newResidents={}
+  for j=1,count do
+    local resident=aquariumController.newResident(id,itemLink)
+    characterSettings.residents[#characterSettings.residents+1]=resident
+    newResidents[#newResidents+1]=resident
+    aquariumController.recordFishDiscovery(resident)
+  end
+  aquariumController.lastCaughtResident=newResidents[1]
   if characterSettings.inventoryFish then
     repopulateAquarium('preserve')
   elseif aquariumCanvas then
@@ -2336,7 +2471,7 @@ local function addCatch(id, count, itemLink)
       if f then
         local speciesCount=0
         for _,existing in ipairs(swimmingFish) do if existing.species==id then speciesCount=speciesCount+1 end end
-        aquariumController.assignFishName(f,speciesCount)
+        aquariumController.assignFishName(f,speciesCount,newResidents[j])
         displayedFishEntries[#displayedFishEntries+1]={id=id,count=1,link=itemLink}
         if not firstNew then firstNew=f end
       end
@@ -2349,7 +2484,7 @@ local function addCatch(id, count, itemLink)
       aquariumWindow.count:SetText(('SESSION CATCHES   %d'):format(characterSettings.total or 0))
     end
     if updateFishValue then updateFishValue() end
-    if aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
+    if aquariumWindow and aquariumWindow.roster and aquariumWindow.roster:IsShown() and aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
   else
     repopulateAquarium('preserve')
   end
@@ -2532,6 +2667,8 @@ local function buildChamber()
   aquariumWindow.resetButton = btn(aquariumWindow, 'RESET', 53, 21, (characterSettings.width or 370) - 96, -(characterSettings.height or 258) + 31, function()
     characterSettings.total = 0
     wipeTable(characterSettings.catches)
+    wipeTable(characterSettings.residents)
+    wipeTable(characterSettings.bagResidents)
     wipeTable(characterSettings.treasures)
     wipeTable(characterSettings.plants or {})
     wipeTable(characterSettings.deadFish or {})
@@ -2556,42 +2693,24 @@ local function buildChamber()
   aquariumWindow.roster:SetPoint('TOPLEFT',aquariumWindow,'TOPRIGHT',8,-25)
   aquariumWindow.roster.header=label(aquariumWindow.roster,'AQUARIUM RESIDENTS',13,12,-13,.95,.81,.48)
   aquariumWindow.roster.header:SetWidth(235)
-  aquariumWindow.roster.subtitle=label(aquariumWindow.roster,'Hover a fish for its details',10,12,-35,.68,.89,.86)
+  aquariumWindow.roster.subtitle=label(aquariumWindow.roster,'Hover a fish for its details',10,12,-57,.68,.89,.86)
   aquariumWindow.roster.list=CreateFrame('ScrollFrame',nil,aquariumWindow.roster,'UIPanelScrollFrameTemplate')
-  aquariumWindow.roster.list:SetPoint('TOPLEFT',aquariumWindow.roster,'TOPLEFT',10,-60)
+  aquariumWindow.roster.list:SetPoint('TOPLEFT',aquariumWindow.roster,'TOPLEFT',10,-83)
   aquariumWindow.roster.list:SetPoint('BOTTOMRIGHT',aquariumWindow.roster,'BOTTOMRIGHT',-30,10)
   aquariumWindow.roster.content=CreateFrame('Frame',nil,aquariumWindow.roster.list)
   aquariumWindow.roster.content:SetSize(225,1)
   aquariumWindow.roster.list:SetScrollChild(aquariumWindow.roster.content)
   aquariumWindow.roster.rows={}
   aquariumWindow.roster:Hide()
-
-  aquariumController.renderFishRoster=function()
-    if not aquariumWindow or not aquariumWindow.roster then return end
+  aquariumWindow.roster.showJournal=false
+  local journalToggle=btn(aquariumWindow.roster,'JOURNAL',76,21,177,-37,function()
     local panel=aquariumWindow.roster
-    local content=panel.content
-    local count=#swimmingFish
-    content:SetHeight(math.max(1,count*29+3))
-    panel.header:SetText(('AQUARIUM RESIDENTS  (%d)'):format(count))
-    if count==0 then panel.subtitle:SetText('No fish in the aquarium')
-    else panel.subtitle:SetText('Hover for happiness, hunger and cooking') end
-    for i,f in ipairs(swimmingFish) do
-      local row=panel.rows[i]
-      if not row then
-        row=CreateFrame('Button',nil,content)
-        row:SetSize(220,27)
-        row.bg=row:CreateTexture(nil,'BACKGROUND')
-        row.bg:SetAllPoints()
-        row.bg:SetTexture('Interface\\Buttons\\WHITE8X8')
-        row.icon=row:CreateTexture(nil,'ARTWORK')
-        row.icon:SetSize(22,22)
-        row.icon:SetPoint('LEFT',4,0)
-        row.icon:SetTexCoord(.08,.92,.08,.92)
-        row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
-        row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
-        row.name:SetWidth(182)
-        row.name:SetJustifyH('LEFT')
-        row:SetScript('OnEnter',function(self)
+    panel.showJournal=not panel.showJournal
+    aquariumController.renderFishRoster()
+  end)
+  aquariumWindow.roster.journalToggle=journalToggle
+
+  local function showResidentTooltip(self)
           local fish=self.fish
           if not fish then return end
           self.bg:SetColorTexture(.16,.36,.36,.88)
@@ -2603,6 +2722,10 @@ local function buildChamber()
           GameTooltip:SetOwner(self,'ANCHOR_RIGHT')
           GameTooltip:AddLine(fish.petName or 'Unnamed Fish',1,.82,.4)
           GameTooltip:AddLine(itemName,.69,.94,.93)
+          GameTooltip:AddLine('Resident ID: '..tostring(fish.uid or 'unknown'),.54,.78,.80)
+          local rarity=fish.rarity or 1
+          GameTooltip:AddLine('Rarity: '..aquariumController.fishRarityNames[rarity]..'  |  Variant: '..aquariumController.fishVariantNames[fish.variant or 1],.95,.79,.55)
+          GameTooltip:AddLine('Personality: '..aquariumController.fishPersonalityNames[fish.personality or 1]..'  |  Stage: '..tostring(fish.lifeStage or 'adult'),.75,.92,.89)
           GameTooltip:AddLine(('Happiness: %d%%'):format(math.floor(happiness+.5)),.94,.94,.84)
           GameTooltip:AddLine(('Hunger (fullness): %d%%'):format(math.floor(hunger+.5)),.94,.94,.84)
           if fish.deadState then
@@ -2630,13 +2753,102 @@ local function buildChamber()
           end
           if not cookingRecipesReady then GameTooltip:AddLine('Open Cooking and scan recipes for updated results.',.65,.75,.85,true) end
           GameTooltip:Show()
-        end)
-        row:SetScript('OnLeave',function(self)
+  end
+  local function hideResidentTooltip(self)
           self.bg:SetColorTexture(.10,.23,.24, self.index%2==0 and .7 or .5)
           GameTooltip:Hide()
-        end)
+  end
+
+  aquariumController.renderFishRoster=function()
+    if not aquariumWindow or not aquariumWindow.roster then return end
+    local panel=aquariumWindow.roster
+    local content=panel.content
+    if panel.showJournal then
+      local journal=characterSettings.catchJournal
+      local rows={}
+      local speciesCount=aquariumController.journalSpeciesCount()
+      rows[#rows+1]='|cff6ee3e8DISCOVERIES|r    '..speciesCount..' species / '..(journal.totalCaught or 0)..' catches'
+      rows[#rows+1]='Best rarity: '..aquariumController.fishRarityNames[journal.rarestQuality or 1]
+      rows[#rows+1]='|cff6ee3e8ACHIEVEMENTS|r'
+      for _,milestone in ipairs(aquariumController.fishMilestones) do
+        local unlocked=journal.achievements[milestone.key]
+        rows[#rows+1]=(unlocked and '|cff58e49a[+]|r ' or '|cff7b8585[-]|r ')..milestone.name
+      end
+      rows[#rows+1]='|cff6ee3e8SPECIES INDEX|r'
+      local species={}
+      for id,entry in pairs(journal.species) do
+        species[#species+1]={id=tonumber(id),entry=entry}
+      end
+      table.sort(species,function(a,b) return (a.id or 0)<(b.id or 0) end)
+      for _,discovery in ipairs(species) do
+        local entry=discovery.entry
+        local name=select(1,GetItemInfo(discovery.id)) or ('Fish #'..tostring(discovery.id))
+        rows[#rows+1]=name..'  x'..(entry.caught or 0)..'  ['..aquariumController.fishRarityNames[entry.bestRarity or 1]..']'
+      end
+      content:SetHeight(math.max(1,#rows*29+3))
+      panel.header:SetText('AQUARIUM JOURNAL')
+      panel.subtitle:SetText('Discovery history survives aquarium RESET')
+      journalToggle.text:SetText('FISH')
+      for i,labelText in ipairs(rows) do
+        local row=panel.rows[i]
+        if not row then
+          row=CreateFrame('Button',nil,content)
+          row:SetSize(220,27)
+          row.bg=row:CreateTexture(nil,'BACKGROUND')
+          row.bg:SetAllPoints()
+          row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
+          row.name:SetPoint('LEFT',6,0)
+          row.name:SetWidth(205)
+          row.name:SetJustifyH('LEFT')
+          panel.rows[i]=row
+        end
+        row.fish=nil
+        if row.icon then row.icon:Hide() end
+        row.name:SetText(labelText)
+        row.bg:SetColorTexture(.10,.23,.24,i%2==0 and .7 or .5)
+        row:ClearAllPoints()
+        row:SetPoint('TOPLEFT',content,'TOPLEFT',0,-(i-1)*29)
+        row:SetShown(true)
+      end
+      for i=#rows+1,#panel.rows do panel.rows[i]:Hide();panel.rows[i].fish=nil end
+      return
+    end
+    journalToggle.text:SetText('JOURNAL')
+    local count=#swimmingFish
+    content:SetHeight(math.max(1,count*29+3))
+    panel.header:SetText(('AQUARIUM RESIDENTS  (%d)'):format(count))
+    if count==0 then panel.subtitle:SetText('No fish in the aquarium')
+    else panel.subtitle:SetText('Hover for happiness, hunger and cooking') end
+    for i,f in ipairs(swimmingFish) do
+      local row=panel.rows[i]
+      if not row then
+        row=CreateFrame('Button',nil,content)
+        row:SetSize(220,27)
+        row.bg=row:CreateTexture(nil,'BACKGROUND')
+        row.bg:SetAllPoints()
+        row.bg:SetTexture('Interface\\Buttons\\WHITE8X8')
+        row.icon=row:CreateTexture(nil,'ARTWORK')
+        row.icon:SetSize(22,22)
+        row.icon:SetPoint('LEFT',4,0)
+        row.icon:SetTexCoord(.08,.92,.08,.92)
+        row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
+        row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
+        row.name:SetWidth(182)
+        row.name:SetJustifyH('LEFT')
         panel.rows[i]=row
       end
+      if not row.icon then
+        row.icon=row:CreateTexture(nil,'ARTWORK')
+        row.icon:SetSize(22,22)
+        row.icon:SetPoint('LEFT',4,0)
+        row.icon:SetTexCoord(.08,.92,.08,.92)
+      end
+      row.icon:Show()
+      row.name:ClearAllPoints()
+      row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
+      row.name:SetWidth(182)
+      row:SetScript('OnEnter',showResidentTooltip)
+      row:SetScript('OnLeave',hideResidentTooltip)
       row.index=i
       row.fish=f
       row:ClearAllPoints()
@@ -2644,7 +2856,8 @@ local function buildChamber()
       row.bg:SetColorTexture(.10,.23,.24,i%2==0 and .7 or .5)
       row.icon:SetTexture(f.deadState=='skeleton' and 'Interface\\Icons\\INV_Misc_Bone_ElfSkull_01' or f.baseIcon)
       local itemName=select(1,GetItemInfo(f.species)) or 'Fish'
-      row.name:SetText((f.petName or 'Unnamed Fish')..'  |cff819c9a('..itemName..')|r')
+      local color=aquariumController.fishRarityColors[f.rarity or 1] or aquariumController.fishRarityColors[1]
+      row.name:SetText(color..(f.petName or 'Unnamed Fish')..'|r  |cff819c9a('..itemName..')|r')
       row:SetShown(true)
     end
     for i = count + 1, #panel.rows do
@@ -2787,8 +3000,7 @@ local function buildIndicator()
   castTimerWindow:SetFrameStrata('HIGH')
   castTimerWindow:SetScale(characterSettings.timerScale or 1)
 
-  -- The cast timer is intentionally transparent; only the fishing graphics,
-  -- countdown labels, and water surface indicators are rendered.
+  -- Transparent cast timer: render only the bobber, rod and countdown.
 
   castTimerWindow.caption = label(castTimerWindow, 'CAST WATCH', 10, 12, -14, .95, .82, .55)
   castTimerWindow.clock = label(castTimerWindow, '0.0s', 15, 176, -13, .93, .99, .95)
@@ -2819,24 +3031,20 @@ local function buildIndicator()
   castTimerWindow.ripples = {}
   for i=1,3 do
     local r = castTimerWindow:CreateTexture(nil, 'BACKGROUND')
-    -- Flat accent lines avoid the built-in yellow indicator artwork.
     r:SetTexture('Interface\\Buttons\\WHITE8X8')
     r:SetColorTexture(.46,.86,1, .25 - i*0.04)
     castTimerWindow.ripples[i] = r
   end
 
-  -- Attach the waterline to the bobber anchor so both move together.
-  -- The dark underlay keeps the thin cyan highlight readable on bright water.
+  -- Surface line follows the bobber anchor so it moves with each cast.
   castTimerWindow.waterlineShadow = castTimerWindow:CreateTexture(nil, 'ARTWORK')
   castTimerWindow.waterlineShadow:SetColorTexture(.02, .20, .28, .6)
   castTimerWindow.waterlineShadow:SetSize(40, 3)
   castTimerWindow.waterlineShadow:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -6)
-
   castTimerWindow.waterline = castTimerWindow:CreateTexture(nil, 'OVERLAY')
   castTimerWindow.waterline:SetColorTexture(.36, .91, 1, .95)
   castTimerWindow.waterline:SetSize(38, 2)
   castTimerWindow.waterline:SetPoint('CENTER', castTimerWindow.bobberAnchor, 'CENTER', 0, -5)
-
   castTimerWindow.bobberShadow = castTimerWindow:CreateTexture(nil, 'ARTWORK')
   castTimerWindow.bobberShadow:SetTexture('Interface\\Buttons\\WHITE8X8')
   castTimerWindow.bobberShadow:SetColorTexture(0,0,0,.22)
@@ -3081,6 +3289,8 @@ local function buildSettings()
   btn(aquarium,'CLEAR CATCHES',116,30,231,-359,function()
     characterSettings.total = 0
     wipeTable(characterSettings.catches)
+    wipeTable(characterSettings.residents)
+    wipeTable(characterSettings.bagResidents)
     wipeTable(characterSettings.treasures)
     wipeTable(characterSettings.deadFish or {})
     repopulateAquarium()
@@ -3362,30 +3572,11 @@ local function updateFishSurvival(t)
         f.deathX=f.x
         f.foodTarget=nil
         f.eatingBit=nil
-        f.dbDeadRecorded = true
-        characterSettings.deadFish = characterSettings.deadFish or {}
-        characterSettings.deadFish[#characterSettings.deadFish + 1] = {
-          id = f.species, link = f.link, deadState = 'dead',
-          lastFed = f.lastFed, deadAt = t, skeletonAt = t + 300,
-          deathCause = f.deathCause, temperatureExposure = f.temperatureExposure,
-          x = f.x, y = f.y, deathX = f.x,
-          targetX = f.targetX, targetY = f.targetY, vx = 0, vy = 0,
-          heading = f.heading, nextWaypoint = f.nextWaypoint, fedUntil = f.fedUntil,
-        }
+        aquariumController.saveResidentFromFrame(f,t)
       end
       if f.deadState then
         deadCount = deadCount + 1
-        -- Persist corpse state at 1 Hz instead of scanning the death ledger on
-        -- every animation tick. Match the original time to avoid same-species collisions.
-        if f.dbDeadRecorded and characterSettings.deadFish then
-          for _, entry in ipairs(characterSettings.deadFish) do
-            if entry.id == f.species and entry.deadAt == f.deadAt then
-              entry.deadState = f.deadState
-              entry.x, entry.y, entry.deathX = f.x, f.y, f.deathX
-              break
-            end
-          end
-        end
+        -- Death and skeleton stages are stored on the unique resident record.
         if f.deadState=='skeleton' then
           f.icon:SetTexture('Interface\\Icons\\INV_Misc_Bone_ElfSkull_01')
           f.icon:SetTexCoord(.08,.92,.08,.92)
@@ -3398,7 +3589,11 @@ local function updateFishSurvival(t)
         local satiety = clamp(1 - ((t - f.lastFed) / 3600), 0, 1)
         hungerSum = hungerSum + satiety*100
         hungerCount = hungerCount + 1
+        f.hunger = satiety*100
+        local thermal = clamp(100-(f.temperatureExposure or 0)/3,0,100)
+        f.happiness = math.min(thermal,f.hunger)
       end
+      aquariumController.saveResidentFromFrame(f,t)
   end
   aquariumController.hungerVitality = hungerCount > 0 and (hungerSum / hungerCount) or 100
   aquariumController.deadFishCount = deadCount
@@ -3460,8 +3655,6 @@ local function updateFishVisuals(t)
       local bobY = -2 + math.sin(t * 5.4) * 5
       castTimerWindow.bobberAnchor:ClearAllPoints()
       castTimerWindow.bobberAnchor:SetPoint('LEFT', castTimerWindow, 'LEFT', bobX, bobY)
-      -- Gentle independent surface motion follows the bobber without
-      -- introducing any per-frame frames, timers, or unbounded allocations.
       local waterSway = math.sin(t * 3.2) * 1.6
       local waterWidth = 38 + math.sin(t * 2.4) * 4
       castTimerWindow.waterline:ClearAllPoints()
@@ -3585,7 +3778,8 @@ local function updateFishVisuals(t)
         local centerY=(home and home.y or 0.5)*h
         -- Every fourth move takes a fish on a longer expedition, otherwise
         -- its home territory keeps different species from merging centrally.
-        if roaming > 0.70 then distance=distance+0.20 end
+        if roaming > 0.70 or f.personality==1 then distance=distance+0.20 end
+        if f.personality==4 then distance=distance*0.55 end -- Shy fish stay near home
         f.targetX=clamp(centerX+math.cos(theta)*distance*w,2,maxX)
         f.targetY=clamp(centerY+math.sin(theta*1.21)*distance*h,2,maxY)
         f.nextWaypoint=t+4+(i%7)*1.1
@@ -3638,13 +3832,15 @@ local function updateFishVisuals(t)
             local centerY=(group.y-f.y)/others
             local flowX=(group.vx-(f.vx or 0))/others
             local flowY=(group.vy-(f.vy or 0))/others
-            tx=tx*.63+centerX*.22+(home and home.x*w or w*.5)*.15+flowX*.12
-            ty=ty*.63+centerY*.22+(home and home.y*h or h*.5)*.15+flowY*.12
+            local follow = f.personality==2 and .38 or .22 -- Social fish school more closely
+            tx=tx*(.85-follow)+centerX*follow+(home and home.x*w or w*.5)*.15+flowX*.12
+            ty=ty*(.85-follow)+centerY*follow+(home and home.y*h or h*.5)*.15+flowY*.12
           elseif home then
             tx=tx*.81+home.x*w*.19
             ty=ty*.81+home.y*h*.19
           end
           local cells=aquariumController.schoolCells
+          local friendCandidate, friendDistance
           if cells then
             local size=aquariumController.schoolCellSize or 72
             local cellX=math.floor(f.x/size)
@@ -3664,6 +3860,11 @@ local function updateFishVisuals(t)
                         local distanceSquared=rx*rx+ry*ry
                         if distanceSquared>1 then
                           if other.species==f.species then
+                            -- Bond with a nearby same-species companion while
+                            -- performing the existing low-frequency spatial scan.
+                            if distanceSquared < 1800 and (not friendDistance or distanceSquared < friendDistance) then
+                              friendCandidate,friendDistance=other,distanceSquared
+                            end
                             local spacing=(f.size+other.size)*.55
                             if distanceSquared<spacing*spacing then
                               pushX=pushX+rx/distanceSquared*900
@@ -3671,6 +3872,7 @@ local function updateFishVisuals(t)
                             end
                           else
                             local safe=math.max(30,(f.size+other.size)*2.1)
+                            if f.personality==4 then safe=safe*1.35 end
                             if distanceSquared<safe*safe then
                               local distance=math.sqrt(distanceSquared)
                               local weight=(safe-distance)/safe*27/distance
@@ -3687,6 +3889,15 @@ local function updateFishVisuals(t)
             end
             tx=tx+pushX
             ty=ty+pushY
+            if friendCandidate and f.resident then
+              local record=f.resident
+              if record.friendUid==friendCandidate.uid then
+                record.bondScore=math.min(100,(record.bondScore or 0)+1)
+              elseif not record.friendUid or (record.bondScore or 0)<15 then
+                record.friendUid=friendCandidate.uid
+                record.bondScore=1
+              end
+            end
           end
           f.schoolTargetX, f.schoolTargetY = tx, ty
         end
@@ -3719,7 +3930,8 @@ local function updateFishVisuals(t)
       else
         f.eatingBit=nil
         if d>0.001 then
-          local speed=f.speed*(target and 3.4 or 1)*(0.34 + 0.66 * (aquariumController.fishVitality / 100))
+          local foodSpeed = f.personality==3 and 4.1 or 3.4 -- Foragers pursue food faster.
+          local speed=f.speed*(target and foodSpeed or 1)*(0.34 + 0.66 * (aquariumController.fishVitality / 100))
           local distance=math.min(d,speed*dt)
           local nextVX=dx/d*speed
           local nextVY=dy/d*speed
@@ -3754,6 +3966,7 @@ local function updateFishVisuals(t)
             if winner and not winner.deadState then
               winner.fedUntil=t+FED_COOLDOWN
               winner.lastFed=t
+              aquariumController.saveResidentFromFrame(winner,t)
               for fishIndex, fish in ipairs(swimmingFish) do
                 if fish == winner then fishCooldownByID[fishIndex] = winner.fedUntil break end
               end
@@ -4066,14 +4279,27 @@ aquariumController:SetScript('OnEvent', function(_, event, ...)
     if name ~= 'VibeFishin' then return end
     VibeFishinDB = VibeFishinDB or {}
     characterSettings = VibeFishinDB
-    -- One-time preference migration, preserving existing choices after renaming.
-    if characterSettings.showCookingKnife ~= nil then
-      characterSettings.showCookingBadges = characterSettings.showCookingKnife
-      characterSettings.showCookingKnife = nil
+    -- V3 intentionally starts fresh fish records; preserve UI preferences.
+    -- No lossy conversion of old per-species-slot identities is attempted.
+    if characterSettings.schemaVersion ~= 3 then
+      characterSettings.nextResidentID=0
+      characterSettings.residents={}
+      characterSettings.bagResidents={}
+      characterSettings.catchJournal={species={},achievements={},totalCaught=0,rarestQuality=1}
+      characterSettings.catches={}
+      characterSettings.deadFish={}
+      characterSettings.fishNames=nil
+      characterSettings.total=0
+      characterSettings.schemaVersion=3
     end
     copyDefaults(characterSettings, defaults)
     characterSettings.realism = nil -- discard retired preference from older saves
     characterSettings.catches = characterSettings.catches or {}
+    characterSettings.residents = characterSettings.residents or {}
+    characterSettings.bagResidents = characterSettings.bagResidents or {}
+    characterSettings.catchJournal = characterSettings.catchJournal or {species={}, achievements={}, totalCaught=0, rarestQuality=1}
+    characterSettings.catchJournal.species = characterSettings.catchJournal.species or {}
+    characterSettings.catchJournal.achievements = characterSettings.catchJournal.achievements or {}
     -- Clean up Sharpening Wheels mistakenly captured by an older build.
     for i = #characterSettings.catches, 1, -1 do
       local c = characterSettings.catches[i]
@@ -4156,6 +4382,8 @@ SlashCmdList.VIBEFISHIN = function(msg)
   elseif msg == 'reset' then
     characterSettings.total = 0
     wipeTable(characterSettings.catches)
+    wipeTable(characterSettings.residents)
+    wipeTable(characterSettings.bagResidents)
     wipeTable(characterSettings.treasures)
     wipeTable(characterSettings.deadFish or {})
     repopulateAquarium()
@@ -4166,6 +4394,7 @@ SlashCmdList.VIBEFISHIN = function(msg)
   elseif msg == 'preview' then
     characterSettings.catchPreview=true
     if optionsWindow and optionsWindow.Refresh then optionsWindow:Refresh() end
+    aquariumController.lastCaughtResident=nil
     revealCatch(6291,1,'|Hitem:6291::::::::|h[Raw Brilliant Smallfish]|h')
     say('Preview test launched. Enable aquarium display to see the icon transfer.')
   elseif msg == 'timer' then
@@ -4176,6 +4405,13 @@ SlashCmdList.VIBEFISHIN = function(msg)
     say('Showing 22-second cast timer test.')
   elseif msg == 'feed' then
     feedAquarium()
+  elseif msg == 'journal' then
+    if aquariumWindow then aquariumWindow:Show() end
+    if aquariumWindow and aquariumWindow.roster then
+      aquariumWindow.roster:Show()
+      aquariumWindow.roster.showJournal=true
+      if aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
+    end
   elseif msg == 'recipes' or msg == 'cooking' then
     scanCookingRecipes(false)
   elseif msg == 'refresh' then
