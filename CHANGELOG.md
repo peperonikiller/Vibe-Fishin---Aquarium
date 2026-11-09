@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.0.0] — The Aquarium UI Overhaul
+
+- Rebuilt the aquarium with a branded header, inset glass viewport, dedicated control footer and refined borders.
+- Redesigned the wider fish/journal drawer with a header strip, improved spacing, rarity accents and corrected row alignment.
+- Reorganized settings into six tabs over two rows, with more spacious content and an interactive Theme gallery.
+- Added eight themes: Abyss, Midnight, WoW Classic, Coral Reef, Emerald Grotto, Arcane, Frostbound, and Sunken Sunset.
+- WoW Classic uses Blizzard's native dialog artwork; custom themes coordinate windows, buttons, sliders, labels, accents, aquarium water and the catch overlay.
+- Theme changes apply immediately and persist per character. The /vfish theme command opens the gallery.
+- Existing v3 fish, care stats, journal, achievements and catch animations are retained. No destructive inventory APIs.
+
 ## [3.0.4] — Journal fish locator
 
 - Hover a journal species to flash a matching fish currently in the aquarium.
