@@ -1,4 +1,4 @@
--- VibeFishin v4.0.0 - WoW Forever (Interface 16001)
+-- VibeFishin v4.0.1 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -3309,11 +3309,11 @@ local function buildChamber()
     end
     if self.resetButton then
       self.resetButton:ClearAllPoints()
-      self.resetButton:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-96,-(characterSettings.height or 258)+75)
+      self.resetButton:SetPoint('TOPRIGHT',self,'BOTTOMRIGHT',-51,75)
     end
     if self.rosterButton then
       self.rosterButton:ClearAllPoints()
-      self.rosterButton:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-36,-(characterSettings.height or 258)+75)
+      self.rosterButton:SetPoint('TOPRIGHT',self,'BOTTOMRIGHT',-12,75)
     end
     if self.roster then
       self.roster:ClearAllPoints()
@@ -3327,11 +3327,11 @@ local function buildChamber()
     end
     if self.settingsButton then
       self.settingsButton:ClearAllPoints()
-      self.settingsButton:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-132,-(characterSettings.height or 258)+75)
+      self.settingsButton:SetPoint('TOPRIGHT',self,'BOTTOMRIGHT',-118,75)
     end
     if self.feedButton then
       self.feedButton:ClearAllPoints()
-      self.feedButton:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-188,-(characterSettings.height or 258)+75)
+      self.feedButton:SetPoint('TOPRIGHT',self,'BOTTOMRIGHT',-156,75)
     end
     if aquariumController.heater and self.tank then
       local h = self.tank:GetHeight()
@@ -3344,7 +3344,7 @@ local function buildChamber()
     end
     if aquariumController.tempWidget then
       aquariumController.tempWidget:ClearAllPoints()
-      aquariumController.tempWidget:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-365,-(characterSettings.height or 258)+77)
+      aquariumController.tempWidget:SetPoint('TOPLEFT',self,'BOTTOMLEFT',12,76)
     end
     repopulateAquarium()
   end
@@ -3708,16 +3708,13 @@ local function buildSettings()
   local themes=optionsWindow.pages[6]
   section(themes,'Interface theme gallery',-38)
   optionsWindow.themeCards={}
+  -- Single-column gallery avoids narrow, overlapping text in scaled WoW UI.
+  -- Fixed-height rows separate the color swatch, title and short descriptor.
   for index, themeKey in ipairs(aquariumController.themeOrder) do
     local palette=aquariumController.themePalettes[themeKey]
-    local col=(index-1)%2
-    local row=math.floor((index-1)/2)
-    local px=12+col*204
-    local py=-75-row*79
-    local card=btn(themes,'',194,72,px,py,function()
+    local card=btn(themes,'',392,39,12,-72-(index-1)*43,function()
       characterSettings.themeID=themeKey
       aquariumController.applyTheme()
-      if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
     end)
     card.text:SetText('')
     card:SetScript('OnLeave',function()
@@ -3725,28 +3722,45 @@ local function buildSettings()
       if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
     end)
     local swatch=card:CreateTexture(nil,'ARTWORK')
-    swatch:SetSize(32,40)
+    swatch:SetSize(21,24)
     swatch:SetPoint('LEFT',card,'LEFT',10,0)
     swatch:SetColorTexture(unpack(palette.accent))
-    local name=label(card,palette.name,12,51,-11,unpack(palette.text))
-    name:SetWidth(130)
-    local desc=label(card,palette.description,9,51,-34,unpack(palette.muted))
-    desc:SetWidth(132)
-    desc:SetHeight(29)
+    local name=card:CreateFontString(nil,'OVERLAY','GameFontNormal')
+    name:SetFont('Fonts\\FRIZQT__.TTF',12,'OUTLINE')
+    name:SetPoint('LEFT',card,'LEFT',43,0)
+    name:SetWidth(124)
+    name:SetJustifyH('LEFT')
+    name:SetText(palette.name)
+    local desc=card:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
+    desc:SetFont('Fonts\\FRIZQT__.TTF',10,'OUTLINE')
+    desc:SetPoint('LEFT',card,'LEFT',171,0)
+    desc:SetWidth(175)
     desc:SetJustifyH('LEFT')
-    optionsWindow.themeCards[index]={button=card,key=themeKey,name=name,description=desc}
+    local shortDescriptions={
+      abyss='Ocean teal',midnight='Dark and blue',classic='Blizzard interface',
+      coral='Warm tropical',emerald='Forest jade',arcane='Violet magic',
+      frost='Arctic silver',sunset='Copper and amber'
+    }
+    desc:SetText(shortDescriptions[themeKey] or '')
+    local indicator=card:CreateTexture(nil,'OVERLAY')
+    indicator:SetTexture('Interface\\Buttons\\WHITE8X8')
+    indicator:SetSize(4,24)
+    indicator:SetPoint('RIGHT',card,'RIGHT',-8,0)
+    indicator:SetColorTexture(unpack(palette.accent))
+    optionsWindow.themeCards[index]={button=card,key=themeKey,name=name,description=desc,indicator=indicator}
   end
   function optionsWindow:RefreshThemeCards()
     for _,entry in ipairs(self.themeCards) do
       local pal=aquariumController.themePalettes[entry.key]
       local selected=entry.key==characterSettings.themeID
-      if entry.button.gloss then entry.button.gloss:SetAlpha(selected and .23 or .06) end
+      if entry.button.gloss then entry.button.gloss:SetAlpha(selected and .18 or .04) end
+      if entry.indicator then entry.indicator:SetAlpha(selected and 1 or .13) end
       entry.button:SetBackdropBorderColor(unpack(selected and pal.accent or aquariumController.currentTheme().border))
       entry.name:SetTextColor(unpack(selected and pal.accent or aquariumController.currentTheme().text))
       entry.description:SetTextColor(unpack(aquariumController.currentTheme().muted))
     end
   end
-  local hint=label(themes,'Changes apply immediately and persist per character.',10,14,-400,.66,.85,.82)
+  local hint=label(themes,'Applied instantly. Saved for this character.',10,14,-423,.66,.85,.82)
   hint:SetWidth(385)
 
   local footer=optionsWindow:CreateTexture(nil,'BACKGROUND')
