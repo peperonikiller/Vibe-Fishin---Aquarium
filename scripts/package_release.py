@@ -32,6 +32,16 @@ assert len(loaded) == 1, 'Unexpected .toc Lua load order'
 lua=loaded[0].read_text(encoding='utf-8')
 assert f'v{version}' in lua or f' {version} ' in lua, 'Lua version header mismatch'
 assert 'DeleteCursorItem' not in lua and 'SplitContainerItem' not in lua, 'Item deletion code present'
+if version.startswith('4.'):
+    required_themes = ('abyss', 'midnight', 'classic', 'coral', 'emerald', 'arcane', 'frost', 'sunset')
+    for theme in required_themes:
+        assert f'{theme}={{name=' in lua, f'Missing UI theme: {theme}'
+    assert "local names = {'Fishing', 'Aquarium', 'Cinematics', 'Display', 'Performance', 'Theme'}" in lua, 'Missing settings Theme tab'
+    assert 'aquariumController.applyTheme=function()' in lua, 'Missing dynamic theme apply'
+    assert "themeID = 'abyss'" in lua, 'Missing persisted default theme'
+    assert 'UI-DialogBox-Border' in lua and 'UI-DialogBox-Background' in lua, 'Missing native Blizzard Classic art'
+    assert 'Docs/V4_DESIGN.md' in [str(p.relative_to(ROOT)) for p in (ROOT/'Docs').glob('*.md')], 'Missing v4 design documentation'
+
 textures=set(re.findall(r'Interface\\\\AddOns\\\\VibeFishin\\\\Media\\\\([a-zA-Z0-9_.-]+)',lua))
 for name in textures:
     path=ROOT/'Media'/name
