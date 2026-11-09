@@ -223,6 +223,7 @@ aquariumController.themePalettes = {
     text={1,.93,.81,1},muted={.86,.69,.55,1},water={.22,.23,.29,.32},gold={1,.82,.44,1}}
 }
 aquariumController.themeOrder={'abyss','midnight','classic','coral','emerald','arcane','frost','sunset'}
+aquariumController.rarityAccentRGB={{.67,.79,.80},{.32,.87,.48},{.36,.65,1},{.72,.43,.97},{1,.74,.28}}
 aquariumController.themeFrames={}
 aquariumController.themeButtons={}
 aquariumController.themeAccentTextures={}
@@ -3090,6 +3091,7 @@ local function buildChamber()
       local journal=characterSettings.catchJournal
       local rows={}
       local speciesByRow={}
+      local speciesRarityByRow={}
       local speciesCount=aquariumController.journalSpeciesCount()
       rows[#rows+1]='|cff6ee3e8DISCOVERIES|r    '..speciesCount..' species / '..(journal.totalCaught or 0)..' catches'
       rows[#rows+1]='Best rarity: '..aquariumController.fishRarityNames[journal.rarestQuality or 1]
@@ -3109,6 +3111,7 @@ local function buildChamber()
         local name=select(1,GetItemInfo(discovery.id)) or ('Fish #'..tostring(discovery.id))
         rows[#rows+1]=name..'  x'..(entry.caught or 0)..'  ['..aquariumController.fishRarityNames[entry.bestRarity or 1]..']'
         speciesByRow[#rows]=discovery.id
+        speciesRarityByRow[#rows]=entry.bestRarity or 1
       end
       content:SetHeight(math.max(1,#rows*29+3))
       panel.header:SetText('AQUARIUM JOURNAL')
@@ -3127,6 +3130,15 @@ local function buildChamber()
           row.name:SetJustifyH('LEFT')
           panel.rows[i]=row
         end
+        if not row.rarityStripe then
+          row.rarityStripe=row:CreateTexture(nil,'ARTWORK')
+          row.rarityStripe:SetPoint('TOPLEFT',row,'TOPLEFT',1,-2)
+          row.rarityStripe:SetPoint('BOTTOMLEFT',row,'BOTTOMLEFT',1,2)
+          row.rarityStripe:SetWidth(3)
+        end
+        local stripeColor=aquariumController.rarityAccentRGB[speciesRarityByRow[i] or 1]
+        row.rarityStripe:SetColorTexture(stripeColor[1],stripeColor[2],stripeColor[3],.93)
+        row.rarityStripe:SetShown(not not speciesByRow[i])
         row.fish=nil
         row.journalSpeciesID=speciesByRow[i]
         row.index=i
@@ -3190,6 +3202,15 @@ local function buildChamber()
       local p=aquariumController.currentTheme()
       row.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],i%2==0 and .82 or .58)
       row.icon:SetTexture(f.deadState=='skeleton' and 'Interface\\Icons\\INV_Misc_Bone_ElfSkull_01' or f.baseIcon)
+      if not row.rarityStripe then
+        row.rarityStripe=row:CreateTexture(nil,'ARTWORK')
+        row.rarityStripe:SetPoint('TOPLEFT',row,'TOPLEFT',1,-2)
+        row.rarityStripe:SetPoint('BOTTOMLEFT',row,'BOTTOMLEFT',1,2)
+        row.rarityStripe:SetWidth(3)
+      end
+      local stripeColor=aquariumController.rarityAccentRGB[f.rarity or 1] or aquariumController.rarityAccentRGB[1]
+      row.rarityStripe:SetColorTexture(stripeColor[1],stripeColor[2],stripeColor[3],.93)
+      row.rarityStripe:Show()
       local itemName=select(1,GetItemInfo(f.species)) or 'Fish'
       local color=aquariumController.fishRarityColors[f.rarity or 1] or aquariumController.fishRarityColors[1]
       row.name:SetText(color..(f.petName or 'Unnamed Fish')..'|r  |cff819c9a('..itemName..')|r')
