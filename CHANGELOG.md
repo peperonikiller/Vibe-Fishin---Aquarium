@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3] — Keep the fishing timer visible on catch
+
+- Preserve the complete fishing rod and countdown during the brief gap between channel end and loot.
+- Keep the timer visible alongside the bobber transfer until the fish lands in the aquarium.
+- Cleanly hide the timer if no catch arrives or the aquarium transfer cannot complete.
+
+
 ## [3.0.2] — Catch bobber handoff
 
 - On fish catches, the timer bobber travels to the catch-preview icon and accompanies it to the aquarium.
