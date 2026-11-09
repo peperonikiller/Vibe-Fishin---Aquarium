@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2] — Transparent cast timer
+
+- Removed the filled timer background, tooltip-style border image, and yellow indicator artwork.
+- Added a cyan water-level line that sways with the animated bobber.
+- Replaced textured cast ripples with minimal colored lines; retained the timer countdown and performance cap.
+
+
 ## [2.0.1] — Feeding reliability
 
 - Pellets remain available for up to two minutes, allowing distant fish more time to reach them in Low-impact mode.
