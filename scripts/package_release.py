@@ -15,6 +15,12 @@ assert re.search(r'^## Interface:\s*16001\s*$', manifest, re.MULTILINE), 'Interf
 assert '## Title: Vibe - Fishing Aquarium' in manifest, 'Unexpected addon title'
 assert '## Author: Pepkilz' in manifest, 'Unexpected author'
 assert '## SavedVariablesPerCharacter: VibeFishinDB' in manifest, 'Saved variables renamed'
+# WowUpHub recognizes the Forever-specific TOC and uses it for game flavor detection.
+forever_toc = ROOT / 'VibeFishin_Forever.toc'
+assert forever_toc.is_file(), 'Missing WowUpHub Forever-specific TOC'
+forever_manifest = forever_toc.read_text(encoding='utf-8')
+assert forever_manifest == manifest, 'Forever and standard TOC metadata differ'
+
 loaded = []
 for line in manifest.splitlines():
     line=line.strip()
@@ -37,7 +43,7 @@ assert len(media)==8, f'Unexpected media inventory: {len(media)}'
 print(f'PASS: v{version}; {len(loaded)} Lua entry; {len(media)} textures; no item deletion API')
 if not args.check:
     out=ROOT / f'VibeFishin-v{version}-forever.zip'
-    included=[ROOT/'VibeFishin.toc',ROOT/'README.md',ROOT/'CHANGELOG.md',ROOT/'CONTRIBUTING.md']
+    included=[ROOT/'VibeFishin.toc',ROOT/'VibeFishin_Forever.toc',ROOT/'README.md',ROOT/'CHANGELOG.md',ROOT/'CONTRIBUTING.md']
     included += sorted((ROOT/'Core').rglob('*.lua'))
     included += media
     included += sorted((ROOT/'Docs').rglob('*.md'))
@@ -49,4 +55,5 @@ if not args.check:
         names = z.namelist()
         assert all(x.startswith('VibeFishin/') for x in names), 'Unexpected archive root'
         assert 'VibeFishin/VibeFishin.toc' in names, 'Missing TOC in archive root'
+        assert 'VibeFishin/VibeFishin_Forever.toc' in names, 'Missing Forever TOC for WowUpHub'
     print('Created:',out)
