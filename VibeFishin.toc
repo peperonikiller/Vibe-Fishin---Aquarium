@@ -2,7 +2,7 @@
 ## Title: Vibe - Fishing Aquarium
 ## Notes: A cinematic fishing aquarium with virtual fish care, treasure and Cooking integration.
 ## Author: Pepkilz
-## Version: 3.0.1
+## Version: 3.0.2
 ## SavedVariablesPerCharacter: VibeFishinDB
 
 # Core source is intentionally loaded in order; asset files are referenced by path.
