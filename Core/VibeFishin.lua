@@ -1,4 +1,4 @@
--- VibeFishin v3.0.1 - WoW Forever (Interface 16001)
+-- VibeFishin v3.0.2 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -45,6 +45,8 @@ local premiumFishIDs = {}
 local cookingIngredients = {}
 local cookingRecipesReady = false
 local flyingCatchIcon = nil
+local handoffBobber = nil
+local beginBobberHandoff, animateBobberHandoff, finishBobberHandoff
 local previewFlightClock = 0
 local previewFlightDuration = 1.4
 local treasureDrop = nil
@@ -2119,6 +2121,75 @@ local function updateSpills(t,dt)
       p:SetAlpha((1-p.age/p.life)*.85)
     end
   end
+end
+
+-- Reuses a single cosmetic copy of the cast bobber for catch handoffs.
+-- The fishing timer remains in its saved location; no inventory action occurs.
+beginBobberHandoff = function()
+  if not characterSettings or not characterSettings.showTimer or not castTimerWindow or not castTimerWindow.bobberAnchor then return end
+  local startX, startY = screenPointInUIParent(castTimerWindow.bobberAnchor)
+  if not startX then return end
+  if not handoffBobber then
+    local bobber = CreateFrame('Frame', nil, UIParent)
+    bobber:SetFrameStrata('TOOLTIP')
+    bobber:SetSize(40, 40)
+    local function addPiece(width, height, x, y, r, g, b, alpha)
+      local texture = bobber:CreateTexture(nil, 'ARTWORK')
+      texture:SetColorTexture(r, g, b, alpha or 1)
+      texture:SetSize(width, height)
+      texture:SetPoint('CENTER', bobber, 'CENTER', x, y)
+      return texture
+    end
+    addPiece(12, 16, 0, -1, .98, .98, 1)
+    addPiece(12, 8, 0, 9, .94, .27, .22)
+    addPiece(4, 4, 0, 15, 1, .86, .35)
+    bobber.surface = addPiece(38, 2, 0, -5, .36, .91, 1, .95)
+    bobber:Hide()
+    handoffBobber = bobber
+  end
+  handoffBobber.startX, handoffBobber.startY = startX, startY
+  handoffBobber.elapsed = 0
+  handoffBobber.phase = 'approach'
+  handoffBobber:ClearAllPoints()
+  handoffBobber:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', startX, startY)
+  handoffBobber:SetAlpha(1)
+  handoffBobber:Show()
+end
+
+-- Animates the bobber from the rod to the preview, then beside the flying fish.
+-- Uses the existing throttled heartbeat without a second OnUpdate callback.
+animateBobberHandoff = function(dt)
+  local bobber = handoffBobber
+  if not bobber or not bobber:IsShown() then return end
+  local inFlight = flyingCatchIcon and flyingCatchIcon:IsShown()
+  if not inFlight and (not catchRevealWindow or not catchRevealWindow:IsShown()) then
+    bobber:Hide()
+    return
+  end
+  local target = inFlight and flyingCatchIcon or catchRevealWindow.trophyFrame
+  local targetX, targetY = screenPointInUIParent(target)
+  if not targetX then bobber:Hide(); return end
+  -- Keep the fish icon unobscured by offsetting the attached bobber.
+  targetX, targetY = targetX + 27, targetY - 8
+  local x, y = targetX, targetY
+  if not inFlight and bobber.phase == 'approach' then
+    bobber.elapsed = (bobber.elapsed or 0) + dt
+    local progress = clamp(bobber.elapsed / 0.7, 0, 1)
+    local eased = progress * progress * (3 - 2 * progress)
+    x = bobber.startX + (targetX - bobber.startX) * eased
+    y = bobber.startY + (targetY - bobber.startY) * eased + math.sin(progress * math.pi) * 30
+    if progress >= 1 then bobber.phase = 'attached' end
+  elseif inFlight then
+    bobber.phase = 'flight'
+  end
+  bobber:ClearAllPoints()
+  bobber:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', x, y)
+  bobber.surface:SetWidth(38 + math.sin((now or 0) * 4) * 3)
+end
+
+-- Removes the cosmetic transfer bobber when the catch enters the water.
+finishBobberHandoff = function()
+  if handoffBobber then handoffBobber:Hide() end
 end
 
 -- Moves a caught fish from the reveal window toward the aquarium.
