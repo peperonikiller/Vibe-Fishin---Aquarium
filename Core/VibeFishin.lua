@@ -1,4 +1,4 @@
--- Vibe - Fishing Aquarium v2.0.0 - WoW Forever (Interface 16001)
+-- VibeFishin v2.0.1 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -25,6 +25,7 @@ local MIN_TANK_WIDTH, MIN_TANK_HEIGHT = 420, 300
 local feedingUntil, lastBagRefresh = 0, 0
 local fishCooldownByID = {}
 local EAT_SECONDS, FED_COOLDOWN = 5, 300
+local FOOD_WINDOW_SECONDS = 120 -- Time available for slow or distant fish to reach a pellet.
 local lastFishingSignal = 0
 local lastChannelSeen = 0
 local repopulateAquarium, updateStatus
@@ -1109,8 +1110,8 @@ end
 
 -- Clears uneaten pellets and releases fish food targets.
 local function resetFood()
-  -- Clear claims and eating animations. Do NOT reset fedUntil: a fish stays
-  -- satisfied for the full 30 seconds even if more food is dropped.
+  -- Clear claims and eating animations. A fish retains its five-minute
+  -- eating cooldown even when the player drops another batch of food.
   for _, fish in ipairs(swimmingFish) do
     fish.foodTarget=nil
     fish.eatingBit=nil
@@ -1134,7 +1135,7 @@ local function feedAquarium()
   resetFood()
   local w,h = aquariumCanvas:GetWidth(),aquariumCanvas:GetHeight()
   local t = GetTime and GetTime() or 0
-  feedingUntil=t+35
+  feedingUntil=t+FOOD_WINDOW_SECONDS
   for i=1,math.min(16,5+math.floor(living/4)) do
     local bit=table.remove(foodPelletPool) or CreateFrame('Frame',nil,aquariumCanvas)
     bit:SetSize(5+(i%3),5+(i%3))
@@ -1336,9 +1337,15 @@ repopulateAquarium = function(skipEntrance)
   -- aquarium rebuild animates the contents in from the waterline.
   characterSettings._aquariumRefreshEntrance = skipEntrance ~= "skip" and not preserve
   for i, fish in ipairs(swimmingFish) do fishCooldownByID[i] = fish.fedUntil or 0 end
+  -- A routine catch/bag refresh must not discard active food. Frames are
+  -- pooled below, so clear the old fish claims before any frames are reused.
+  for _, pellet in ipairs(foodPellets) do
+    pellet.claimedBy=nil
+    pellet.eater=nil
+    pellet.eatStarted=nil
+  end
   clearFish()
   clearBubbles()
-  resetFood()
   if not characterSettings or not aquariumCanvas then return end
   repopulatePlants()
   local w,h=aquariumCanvas:GetWidth(), aquariumCanvas:GetHeight()
@@ -3723,7 +3730,7 @@ local function updateFishVisuals(t)
 
     for _,bit in ipairs(foodPellets) do
       if not bit.eaten then
-        if t>=feedingUntil then
+        if t>=feedingUntil and not bit.eatStarted then
           bit.eaten=true
           bit:Hide()
         elseif bit.eatStarted then
@@ -3735,15 +3742,9 @@ local function updateFishVisuals(t)
             bit.eaten=true
             bit:Hide()
             local winner=bit.eater
-            if winner then
+            if winner and not winner.deadState then
               winner.fedUntil=t+FED_COOLDOWN
               winner.lastFed=t
-              if winner.deadState then
-                winner.deadState=nil
-                winner.deadAt=nil
-                winner.skeletonAt=nil
-                winner.icon:SetTexture(winner.baseIcon or winner.icon:GetTexture())
-              end
               for fishIndex, fish in ipairs(swimmingFish) do
                 if fish == winner then fishCooldownByID[fishIndex] = winner.fedUntil break end
               end
