@@ -1,4 +1,4 @@
--- VibeFishin v3.0.3 - WoW Forever (Interface 16001)
+-- VibeFishin v3.0.4 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -2777,6 +2777,7 @@ local function buildChamber()
   aquariumWindow.rosterButton=btn(aquariumWindow,'>',25,21,(characterSettings.width or 370)-36,-(characterSettings.height or 258)+31,function()
     if not aquariumWindow.roster then return end
     aquariumWindow.roster:SetShown(not aquariumWindow.roster:IsShown())
+    if not aquariumWindow.roster:IsShown() and aquariumController.clearJournalFlash then aquariumController.clearJournalFlash() end
     aquariumWindow.rosterButton.text:SetText(aquariumWindow.roster:IsShown() and '<' or '>')
     if aquariumWindow.roster:IsShown() and aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
   end)
@@ -2801,14 +2802,55 @@ local function buildChamber()
   local journalToggle=btn(aquariumWindow.roster,'JOURNAL',76,21,177,-37,function()
     local panel=aquariumWindow.roster
     panel.showJournal=not panel.showJournal
+    if aquariumController.clearJournalFlash then aquariumController.clearJournalFlash() end
     aquariumController.renderFishRoster()
   end)
   aquariumWindow.roster.journalToggle=journalToggle
+
+  -- Select one visible resident, using UID for fish rows or species for journal rows.
+  aquariumController.flashJournalFish = function(species, uid)
+    local previous = aquariumController.highlightFishFrame
+    if previous and previous.icon then previous.icon:SetAlpha(1) end
+    aquariumController.highlightFishFrame = nil
+    if not aquariumWindow or not aquariumWindow:IsShown() then return end
+    local candidate
+    for _, fish in ipairs(swimmingFish) do
+      if uid and fish.uid == uid then
+        candidate = fish
+        break
+      elseif not uid and species and fish.species == species then
+        if not candidate or (candidate.deadState and not fish.deadState) then candidate = fish end
+        if candidate and not candidate.deadState then break end
+      end
+    end
+    if candidate and candidate:IsShown() and candidate.icon then
+      aquariumController.highlightFishFrame = candidate
+    end
+  end
+
+  -- Restore icon opacity when the highlight ends.
+  aquariumController.clearJournalFlash = function()
+    local fish = aquariumController.highlightFishFrame
+    if fish and fish.icon then fish.icon:SetAlpha(1) end
+    aquariumController.highlightFishFrame = nil
+  end
+
+  -- Highlight a displayed fish matching the encyclopedia species row.
+  local function showJournalSpeciesHighlight(self)
+    self.bg:SetColorTexture(.16,.36,.36,.88)
+    if self.journalSpeciesID then aquariumController.flashJournalFish(self.journalSpeciesID) end
+  end
+
+  local function hideJournalSpeciesHighlight(self)
+    self.bg:SetColorTexture(.10,.23,.24,(self.index or 1)%2==0 and .7 or .5)
+    aquariumController.clearJournalFlash()
+  end
 
   local function showResidentTooltip(self)
           local fish=self.fish
           if not fish then return end
           self.bg:SetColorTexture(.16,.36,.36,.88)
+          aquariumController.flashJournalFish(fish.species, fish.uid)
           local itemName=select(1,GetItemInfo(fish.species)) or 'Unknown Fish'
           local timestamp=GetTime and GetTime() or now
           local hunger=clamp(100-(timestamp-(fish.lastFed or timestamp))/36,0,100)
@@ -2851,6 +2893,7 @@ local function buildChamber()
   end
   local function hideResidentTooltip(self)
           self.bg:SetColorTexture(.10,.23,.24, self.index%2==0 and .7 or .5)
+          aquariumController.clearJournalFlash()
           GameTooltip:Hide()
   end
 
@@ -2861,6 +2904,7 @@ local function buildChamber()
     if panel.showJournal then
       local journal=characterSettings.catchJournal
       local rows={}
+      local speciesByRow={}
       local speciesCount=aquariumController.journalSpeciesCount()
       rows[#rows+1]='|cff6ee3e8DISCOVERIES|r    '..speciesCount..' species / '..(journal.totalCaught or 0)..' catches'
       rows[#rows+1]='Best rarity: '..aquariumController.fishRarityNames[journal.rarestQuality or 1]
@@ -2879,6 +2923,7 @@ local function buildChamber()
         local entry=discovery.entry
         local name=select(1,GetItemInfo(discovery.id)) or ('Fish #'..tostring(discovery.id))
         rows[#rows+1]=name..'  x'..(entry.caught or 0)..'  ['..aquariumController.fishRarityNames[entry.bestRarity or 1]..']'
+        speciesByRow[#rows]=discovery.id
       end
       content:SetHeight(math.max(1,#rows*29+3))
       panel.header:SetText('AQUARIUM JOURNAL')
@@ -2898,6 +2943,10 @@ local function buildChamber()
           panel.rows[i]=row
         end
         row.fish=nil
+        row.journalSpeciesID=speciesByRow[i]
+        row.index=i
+        row:SetScript('OnEnter',showJournalSpeciesHighlight)
+        row:SetScript('OnLeave',hideJournalSpeciesHighlight)
         if row.icon then row.icon:Hide() end
         row.name:SetText(labelText)
         row.bg:SetColorTexture(.10,.23,.24,i%2==0 and .7 or .5)
@@ -2905,7 +2954,7 @@ local function buildChamber()
         row:SetPoint('TOPLEFT',content,'TOPLEFT',0,-(i-1)*29)
         row:SetShown(true)
       end
-      for i=#rows+1,#panel.rows do panel.rows[i]:Hide();panel.rows[i].fish=nil end
+      for i=#rows+1,#panel.rows do panel.rows[i]:Hide();panel.rows[i].fish=nil;panel.rows[i].journalSpeciesID=nil end
       return
     end
     journalToggle.text:SetText('JOURNAL')
@@ -2944,6 +2993,7 @@ local function buildChamber()
       row.name:SetWidth(182)
       row:SetScript('OnEnter',showResidentTooltip)
       row:SetScript('OnLeave',hideResidentTooltip)
+      row.journalSpeciesID=nil
       row.index=i
       row.fish=f
       row:ClearAllPoints()
@@ -4291,6 +4341,16 @@ local function update(_, elapsed)
 
   -- Follow the final position of the preview card or the flying fish.
   if aquariumController.animateBobberHandoff then aquariumController.animateBobberHandoff(heartbeatElapsed) end
+
+  -- Pulse only the selected icon within the existing capped heartbeat.
+  local highlighted = aquariumController.highlightFishFrame
+  if highlighted and highlighted.icon then
+    if aquariumWindow and aquariumWindow:IsShown() and highlighted:IsShown() then
+      highlighted.icon:SetAlpha(.32 + .68 * (.5 + .5 * math.sin(now * 12)))
+    else
+      aquariumController.clearJournalFlash()
+    end
+  end
 
   if aquariumWindow and aquariumWindow.roster and aquariumWindow.roster:IsShown() then
     if not aquariumController.nextRosterUpdate or now>=aquariumController.nextRosterUpdate then
