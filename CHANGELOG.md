@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.4] — Journal fish locator
+
+- Hover a journal species to flash a matching fish currently in the aquarium.
+- Hover an individual resident to flash that exact fish icon.
+- Highlight automatically clears on hover exit, panel close, or aquarium refresh and runs within the existing animation budget.
+
+
 ## [3.0.3] — Keep the fishing timer visible on catch
 
 - Preserve the complete fishing rod and countdown during the brief gap between channel end and loot.
