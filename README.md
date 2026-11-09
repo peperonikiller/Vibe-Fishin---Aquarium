@@ -1,6 +1,6 @@
 # Vibe - Fishing Aquarium
 
-**v3.0.3 · WoW: Forever · By Pepkilz**
+**v3.0.4 · WoW: Forever · By Pepkilz**
 
 A customizable, animated fishing aquarium for World of Warcraft: Forever. Catch fish, care for them, and build your collection.
 
@@ -8,7 +8,7 @@ A customizable, animated fishing aquarium for World of Warcraft: Forever. Catch 
 
 - Unique fish with names, rarities, variants, personalities, and friendships.
 - Fish feeding, happiness, hunger, and water-temperature survival.
-- Fish encyclopedia, achievements, and a persistent collection.
+- Fish encyclopedia, achievements, and a persistent collection. Hover a fish in the journal or resident list to flash its aquarium icon.
 - Animated aquarium with customizable decorations and performance settings.
 - Fishing cast timer, bait reminders, and catch previews with a visible rod, timer, and animated bobber-to-aquarium handoff.
 
