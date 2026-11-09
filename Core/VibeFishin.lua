@@ -45,8 +45,8 @@ local premiumFishIDs = {}
 local cookingIngredients = {}
 local cookingRecipesReady = false
 local flyingCatchIcon = nil
-local handoffBobber = nil
-local beginBobberHandoff, animateBobberHandoff, finishBobberHandoff
+-- Store handoff state on the addon controller: WoW's Lua 5.1 main chunk
+-- has a strict limit of 200 local variables.
 local previewFlightClock = 0
 local previewFlightDuration = 1.4
 local treasureDrop = nil
@@ -1685,7 +1685,7 @@ local function revealCatch(id, count, itemLink)
   catchRevealWindow.icon:SetTexture(imageIcon or 'Interface\\Icons\\INV_Misc_Fish_02')
   queuedCatch={id=id,icon=imageIcon or icon,count=count or 1}
   if flyingCatchIcon then flyingCatchIcon:Hide() end
-  if finishBobberHandoff then finishBobberHandoff() end
+  if aquariumController.finishBobberHandoff then aquariumController.finishBobberHandoff() end
   previewClock=0
   catchPreviewEnds=(GetTime and GetTime() or 0)+5.5
   catchRevealWindow:ClearAllPoints()
@@ -1694,7 +1694,7 @@ local function revealCatch(id, count, itemLink)
   catchRevealWindow:Show()
   -- The timer may already have hidden after loot, but its bobber keeps
   -- its last screen position for the transition to the catch-preview fish.
-  if beginBobberHandoff then beginBobberHandoff() end
+  if aquariumController.beginBobberHandoff then aquariumController.beginBobberHandoff() end
 end
 
 -- Creates the seaweed strands and segment textures once.
@@ -2129,11 +2129,11 @@ end
 
 -- Reuses a single cosmetic copy of the cast bobber for catch handoffs.
 -- The fishing timer remains in its saved location; no inventory action occurs.
-beginBobberHandoff = function()
+aquariumController.beginBobberHandoff = function()
   if not characterSettings or not characterSettings.showTimer or not castTimerWindow or not castTimerWindow.bobberAnchor then return end
   local startX, startY = screenPointInUIParent(castTimerWindow.bobberAnchor)
   if not startX then return end
-  if not handoffBobber then
+  if not aquariumController.handoffBobber then
     local bobber = CreateFrame('Frame', nil, UIParent)
     bobber:SetFrameStrata('TOOLTIP')
     bobber:SetSize(40, 40)
@@ -2149,21 +2149,21 @@ beginBobberHandoff = function()
     addPiece(4, 4, 0, 15, 1, .86, .35)
     bobber.surface = addPiece(38, 2, 0, -5, .36, .91, 1, .95)
     bobber:Hide()
-    handoffBobber = bobber
+    aquariumController.handoffBobber = bobber
   end
-  handoffBobber.startX, handoffBobber.startY = startX, startY
-  handoffBobber.elapsed = 0
-  handoffBobber.phase = 'approach'
-  handoffBobber:ClearAllPoints()
-  handoffBobber:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', startX, startY)
-  handoffBobber:SetAlpha(1)
-  handoffBobber:Show()
+  aquariumController.handoffBobber.startX, aquariumController.handoffBobber.startY = startX, startY
+  aquariumController.handoffBobber.elapsed = 0
+  aquariumController.handoffBobber.phase = 'approach'
+  aquariumController.handoffBobber:ClearAllPoints()
+  aquariumController.handoffBobber:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', startX, startY)
+  aquariumController.handoffBobber:SetAlpha(1)
+  aquariumController.handoffBobber:Show()
 end
 
 -- Animates the bobber from the rod to the preview, then beside the flying fish.
 -- Uses the existing throttled heartbeat without a second OnUpdate callback.
-animateBobberHandoff = function(dt)
-  local bobber = handoffBobber
+aquariumController.animateBobberHandoff = function(dt)
+  local bobber = aquariumController.handoffBobber
   if not bobber or not bobber:IsShown() then return end
   local inFlight = flyingCatchIcon and flyingCatchIcon:IsShown()
   if not inFlight and (not catchRevealWindow or not catchRevealWindow:IsShown()) then
@@ -2192,8 +2192,8 @@ animateBobberHandoff = function(dt)
 end
 
 -- Removes the cosmetic transfer bobber when the catch enters the water.
-finishBobberHandoff = function()
-  if handoffBobber then handoffBobber:Hide() end
+aquariumController.finishBobberHandoff = function()
+  if aquariumController.handoffBobber then aquariumController.handoffBobber:Hide() end
 end
 
 -- Moves a caught fish from the reveal window toward the aquarium.
@@ -2278,7 +2278,7 @@ local function animateCatchFlight(dt)
     end
   end
   if t>=1 then
-    if finishBobberHandoff then finishBobberHandoff() end
+    if aquariumController.finishBobberHandoff then aquariumController.finishBobberHandoff() end
     flyingCatchIcon:Hide()
     if flyingCatchIcon.trails then for _,trail in ipairs(flyingCatchIcon.trails) do trail:Hide() end end
     splashAt(flyingCatchIcon.endX, flyingCatchIcon.endY)
@@ -4255,7 +4255,7 @@ local function update(_, elapsed)
   end
 
   -- Follow the final position of the preview card or the flying fish.
-  if animateBobberHandoff then animateBobberHandoff(heartbeatElapsed) end
+  if aquariumController.animateBobberHandoff then aquariumController.animateBobberHandoff(heartbeatElapsed) end
 
   if aquariumWindow and aquariumWindow.roster and aquariumWindow.roster:IsShown() then
     if not aquariumController.nextRosterUpdate or now>=aquariumController.nextRosterUpdate then
