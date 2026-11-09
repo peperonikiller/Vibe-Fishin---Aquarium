@@ -2976,19 +2976,22 @@ local function buildChamber()
 
   -- Highlight a displayed fish matching the encyclopedia species row.
   local function showJournalSpeciesHighlight(self)
-    self.bg:SetColorTexture(.16,.36,.36,.88)
+    local p=aquariumController.currentTheme()
+    self.bg:SetColorTexture(unpack(p.hover))
     if self.journalSpeciesID then aquariumController.flashJournalFish(self.journalSpeciesID) end
   end
 
   local function hideJournalSpeciesHighlight(self)
-    self.bg:SetColorTexture(.10,.23,.24,(self.index or 1)%2==0 and .7 or .5)
+    local p=aquariumController.currentTheme()
+    self.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],(self.index or 1)%2==0 and .82 or .58)
     aquariumController.clearJournalFlash()
   end
 
   local function showResidentTooltip(self)
           local fish=self.fish
           if not fish then return end
-          self.bg:SetColorTexture(.16,.36,.36,.88)
+          local p=aquariumController.currentTheme()
+    self.bg:SetColorTexture(unpack(p.hover))
           aquariumController.flashJournalFish(fish.species, fish.uid)
           local itemName=select(1,GetItemInfo(fish.species)) or 'Unknown Fish'
           local timestamp=GetTime and GetTime() or now
@@ -3031,7 +3034,8 @@ local function buildChamber()
           GameTooltip:Show()
   end
   local function hideResidentTooltip(self)
-          self.bg:SetColorTexture(.10,.23,.24, self.index%2==0 and .7 or .5)
+          local p=aquariumController.currentTheme()
+    self.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],self.index%2==0 and .82 or .58)
           aquariumController.clearJournalFlash()
           GameTooltip:Hide()
   end
@@ -3072,12 +3076,12 @@ local function buildChamber()
         local row=panel.rows[i]
         if not row then
           row=CreateFrame('Button',nil,content)
-          row:SetSize(220,27)
+          row:SetSize(254,28)
           row.bg=row:CreateTexture(nil,'BACKGROUND')
           row.bg:SetAllPoints()
           row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
           row.name:SetPoint('LEFT',6,0)
-          row.name:SetWidth(205)
+          row.name:SetWidth(237)
           row.name:SetJustifyH('LEFT')
           panel.rows[i]=row
         end
@@ -3087,8 +3091,12 @@ local function buildChamber()
         row:SetScript('OnEnter',showJournalSpeciesHighlight)
         row:SetScript('OnLeave',hideJournalSpeciesHighlight)
         if row.icon then row.icon:Hide() end
+        row.name:ClearAllPoints()
+        row.name:SetPoint('LEFT',row,'LEFT',9,0)
+        row.name:SetWidth(238)
         row.name:SetText(labelText)
-        row.bg:SetColorTexture(.10,.23,.24,i%2==0 and .7 or .5)
+        local p=aquariumController.currentTheme()
+        row.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],i%2==0 and .82 or .58)
         row:ClearAllPoints()
         row:SetPoint('TOPLEFT',content,'TOPLEFT',0,-(i-1)*29)
         row:SetShown(true)
@@ -3106,7 +3114,7 @@ local function buildChamber()
       local row=panel.rows[i]
       if not row then
         row=CreateFrame('Button',nil,content)
-        row:SetSize(220,27)
+        row:SetSize(254,28)
         row.bg=row:CreateTexture(nil,'BACKGROUND')
         row.bg:SetAllPoints()
         row.bg:SetTexture('Interface\\Buttons\\WHITE8X8')
@@ -3116,7 +3124,7 @@ local function buildChamber()
         row.icon:SetTexCoord(.08,.92,.08,.92)
         row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
         row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
-        row.name:SetWidth(182)
+        row.name:SetWidth(208)
         row.name:SetJustifyH('LEFT')
         panel.rows[i]=row
       end
@@ -3129,7 +3137,7 @@ local function buildChamber()
       row.icon:Show()
       row.name:ClearAllPoints()
       row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
-      row.name:SetWidth(182)
+      row.name:SetWidth(208)
       row:SetScript('OnEnter',showResidentTooltip)
       row:SetScript('OnLeave',hideResidentTooltip)
       row.journalSpeciesID=nil
@@ -3137,7 +3145,8 @@ local function buildChamber()
       row.fish=f
       row:ClearAllPoints()
       row:SetPoint('TOPLEFT',content,'TOPLEFT',0,-(i-1)*29)
-      row.bg:SetColorTexture(.10,.23,.24,i%2==0 and .7 or .5)
+      local p=aquariumController.currentTheme()
+      row.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],i%2==0 and .82 or .58)
       row.icon:SetTexture(f.deadState=='skeleton' and 'Interface\\Icons\\INV_Misc_Bone_ElfSkull_01' or f.baseIcon)
       local itemName=select(1,GetItemInfo(f.species)) or 'Fish'
       local color=aquariumController.fishRarityColors[f.rarity or 1] or aquariumController.fishRarityColors[1]
