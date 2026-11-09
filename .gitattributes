@@ -1,0 +1,5 @@
+*.lua text eol=lf
+*.toc text eol=crlf
+*.md text eol=lf
+*.yml text eol=lf
+*.tga binary

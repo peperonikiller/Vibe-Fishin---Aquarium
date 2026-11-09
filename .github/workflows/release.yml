@@ -1,0 +1,33 @@
+name: Validate and package addon
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Lua syntax check
+        run: lua5.1 scripts/check_syntax.lua Core/VibeFishin.lua
+      - name: Validate source and media
+        run: python3 scripts/package_release.py --check
+      - name: Build installable ZIP
+        run: python3 scripts/package_release.py
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VibeFishin-release
+          path: VibeFishin-v*.zip
+          if-no-files-found: error
+      - name: Create GitHub Release on version tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${GITHUB_REF_NAME}" "VibeFishin-${GITHUB_REF_NAME}-forever.zip" --title "Vibe - Fishing Aquarium ${GITHUB_REF_NAME}" --generate-notes
