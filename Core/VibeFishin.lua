@@ -4247,6 +4247,7 @@ local function update(_, elapsed)
       -- If the aquarium is hidden, finish this reveal without retrying the flight.
       if not startCatchFlight() then
         queuedCatch=nil
+        if aquariumController.finishBobberHandoff then aquariumController.finishBobberHandoff() end
         if arrivingFishFrame then arrivingFishFrame:Show() end
         arrivingFishFrame,arrivingFishItemID=nil,nil
       end
@@ -4255,6 +4256,9 @@ local function update(_, elapsed)
     local left=catchPreviewEnds-now
     if left <= 0 then
       catchRevealWindow:Hide()
+      if aquariumController.finishBobberHandoff and not (flyingCatchIcon and flyingCatchIcon:IsShown()) then
+        aquariumController.finishBobberHandoff()
+      end
     else
       local fadeIn=clamp(previewClock/0.35,0,1)
       local fadeOut=clamp(left/0.8,0,1)
