@@ -1,6 +1,6 @@
 # Vibe - Fishing Aquarium
 
-**Version 2.0.0** · **Author: Pepkilz** · World of Warcraft: Forever (interface `16001`)
+**Version 2.0.1** · **Author: Pepkilz** · World of Warcraft: Forever (interface `16001`)
 
 A resizable, animated fishing aquarium inside World of Warcraft. Caught fish populate a virtual tank with a resident roster, generated names, feeding, hunger, temperature, happiness, and simulated death. Fish and treasure enter with animated splashes; you can customize water movement, sand, plants, seaweed, crabs, and the heater.
 
@@ -8,7 +8,7 @@ A resizable, animated fishing aquarium inside World of Warcraft. Caught fish pop
 
 ## Installation
 
-1. Download the archive **`VibeFishin-v2.0.0-forever.zip`** from the release page.
+1. Download the archive **`VibeFishin-v2.0.1-forever.zip`** from the release page.
 2. Extract its **`VibeFishin`** folder into your client's `Interface/AddOns/` directory.
 3. Enter `/vfish` to open options. `/vfish on`, `/vfish off`, and `/vfish toggle` control fishing mode.
 
@@ -62,3 +62,7 @@ See the options window for UI controls, reset, and collection display settings.
 - **Optional third-party ecosystems:** Auctionator and Auction House Database (AHDB) remain independently maintained addons. Their source and artwork are not included here.
 
 **Licensing:** No open-source license has been granted in this repository yet. This is intentional pending Pepkilz's choice of a suitable license and confirmation of asset rights. Do not assume Blizzard assets or unverified third-party works are covered by any project license.
+
+### Feeding timing (v2.0.1)
+
+Pellets remain available for two minutes, even with Low-impact mode enabled. Refreshing inventory does not remove pellets. Once a fish begins nibbling, it takes five seconds to complete a meal and gets a five-minute feeding cooldown.
