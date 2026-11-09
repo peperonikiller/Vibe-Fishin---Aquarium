@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1] — Interface alignment fixes
+
+- Replaced the cramped two-column Theme gallery with readable full-width theme rows and short descriptions.
+- Added a clear selected-theme marker and corrected theme-card spacing on scaled UIs.
+- Re-anchored heater controls to the aquarium footer's left edge and aligned actions along its right edge, including after resize.
+
+
 ## [4.0.0] — The Aquarium UI Overhaul
 
 - Rebuilt the aquarium with a branded header, inset glass viewport, dedicated control footer and refined borders.
