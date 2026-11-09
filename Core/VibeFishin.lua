@@ -303,6 +303,7 @@ aquariumController.applyTheme=function()
     if optionsWindow.footer then optionsWindow.footer:SetColorTexture(unpack(p.header)) end
     if optionsWindow.themeName then optionsWindow.themeName:SetText(p.name); optionsWindow.themeName:SetTextColor(unpack(p.accent)) end
     if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
+    if optionsWindow.Refresh then optionsWindow:Refresh() end
     if optionsWindow.activatePage and optionsWindow.activePage then
       optionsWindow.activatePage(optionsWindow.activePage)
     end
@@ -407,7 +408,7 @@ local function checkButton(p, txt, x, y, key, onChange)
   aquariumController.themeTintTextures[checked]=true
   function b:Refresh()
     checked:SetShown(not not characterSettings[key])
-    square:SetBackdropColor(characterSettings[key] and 0.07 or 0.02, characterSettings[key] and 0.27 or 0.08, characterSettings[key] and 0.25 or 0.1, 1)
+    square:SetBackdropColor(unpack(characterSettings[key] and aquariumController.currentTheme().hover or aquariumController.currentTheme().panel))
   end
   b:Refresh()
   return b
@@ -3573,6 +3574,7 @@ local function buildSettings()
     local col=(i-1)%3
     local row=math.floor((i-1)/3)
     local tab=btn(optionsWindow,name,137,28,13+col*141,-54-row*34,function()activatePage(i) end)
+    tab:SetScript('OnLeave',function() activatePage(optionsWindow.activePage or 1) end)
     optionsWindow.tabs[i]=tab
     makePage(i)
   end
@@ -3715,6 +3717,10 @@ local function buildSettings()
       if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
     end)
     card.text:SetText('')
+    card:SetScript('OnLeave',function()
+      aquariumController.styleThemeFrame(card,'button')
+      if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
+    end)
     local swatch=card:CreateTexture(nil,'ARTWORK')
     swatch:SetSize(32,40)
     swatch:SetPoint('LEFT',card,'LEFT',10,0)
@@ -4738,6 +4744,7 @@ aquariumController:SetScript('OnEvent', function(_, event, ...)
       characterSettings.schemaVersion=3
     end
     copyDefaults(characterSettings, defaults)
+    if not aquariumController.themePalettes[characterSettings.themeID] then characterSettings.themeID='abyss' end
     characterSettings.realism = nil -- discard retired preference from older saves
     characterSettings.catches = characterSettings.catches or {}
     characterSettings.residents = characterSettings.residents or {}
