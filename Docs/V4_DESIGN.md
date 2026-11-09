@@ -4,8 +4,8 @@
 
 - **Aquarium:** 52px header, inset glass, 87px bottom control footer. The original camera-responsive water, swimming, fish care and heater controls remain.
 - **Fish / Journal drawer:** 302×424 popout, themed header and separator, 254px wide rows, fish rarity stripes and one resident hover flash.
-- **Settings:** 454×620, six tabs in a two-row three-column grid. The options pages have an extended content area and a consistent footer.
-- **Theme gallery:** eight themed 194×72 cards in a two-column grid. Selection is immediate and saved per character.
+- **Settings:** 454×620, six tabs in a two-row three-column grid. The aquarium footer places temperature controls on the left and action buttons on the right. The options pages have an extended content area and a consistent footer.
+- **Theme gallery:** eight full-width 392×39 rows in a one-column list, with short descriptions and a selected-state marker. Selection is immediate and saved per character.
 
 ## Theme keys
 
