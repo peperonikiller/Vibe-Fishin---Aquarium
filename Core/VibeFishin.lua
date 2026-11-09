@@ -1480,6 +1480,8 @@ repopulateAquarium = function(skipEntrance)
     pellet.eater=nil
     pellet.eatStarted=nil
   end
+  -- A refresh recycles fish frames; never leave a highlight on a reused icon.
+  if aquariumController.clearJournalFlash then aquariumController.clearJournalFlash() end
   clearFish()
   clearBubbles()
   if not characterSettings or not aquariumCanvas then return end
