@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.0.1] — Living Waters: roster hotfix and WowUpHub packaging
+
+- Fixed unqualified rarity, variant, and personality table references in the journal and resident tooltips.
+- Added a WoW Forever-specific `VibeFishin_Forever.toc` for game-flavor detection by WowUpHub.
+- Added an aquarium preview image in `.previews/` and updated the GitHub release package checks.
+
+## [3.0.0] — Living Waters
+
+- Individual saved fish identities with unique IDs, names, rarity, personality, life stage, wellness, and bond scores.
+- Cosmetic rarity tiers and persistent collectible variants; WoW items remain unchanged.
+- Personality-driven fish movement and nearby same-species friendships.
+- Species encyclopedia, discovery history, and eight achievements.
+- Continued throttled aquarium animation and spatial lookup optimizations.
+- Fresh v3 saved-data schema; v2 resident data is not migrated.
+
 ## [2.0.2] — Transparent cast timer
 
 - Removed the filled timer background, tooltip-style border image, and yellow indicator artwork.
