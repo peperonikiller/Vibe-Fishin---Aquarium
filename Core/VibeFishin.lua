@@ -225,6 +225,7 @@ aquariumController.themePalettes = {
 aquariumController.themeOrder={'abyss','midnight','classic','coral','emerald','arcane','frost','sunset'}
 aquariumController.themeFrames={}
 aquariumController.themeButtons={}
+aquariumController.themeAccentTextures={}
 aquariumController.currentTheme=function()
   return aquariumController.themePalettes[(characterSettings and characterSettings.themeID) or 'abyss']
     or aquariumController.themePalettes.abyss
@@ -257,29 +258,41 @@ aquariumController.applyTheme=function()
   for button in pairs(aquariumController.themeButtons) do
     if button and button.text then button.text:SetTextColor(unpack(p.text)) end
   end
+  for texture in pairs(aquariumController.themeAccentTextures) do
+    if texture then texture:SetColorTexture(p.accent[1],p.accent[2],p.accent[3],.19) end
+  end
   if aquariumWindow then
     if aquariumWindow.header then aquariumWindow.header:SetColorTexture(unpack(p.header)) end
     if aquariumWindow.trim then aquariumWindow.trim:SetColorTexture(unpack(p.accent)) end
     if aquariumWindow.water then aquariumWindow.water:SetColorTexture(unpack(p.water)) end
     if aquariumWindow.title then aquariumWindow.title:SetTextColor(unpack(p.text)) end
+    if aquariumWindow.glow then aquariumWindow.glow:SetColorTexture(p.accent[1],p.accent[2],p.accent[3],.13) end
+    if aquariumWindow.surfaceWave then aquariumWindow.surfaceWave:SetColorTexture(p.accent[1],p.accent[2],p.accent[3],.25) end
     if aquariumWindow.status then aquariumWindow.status:SetTextColor(unpack(p.accent)) end
     if aquariumWindow.count then aquariumWindow.count:SetTextColor(unpack(p.muted)) end
     if aquariumWindow.footer then aquariumWindow.footer:SetColorTexture(unpack(p.header)) end
     if aquariumWindow.footerLine then aquariumWindow.footerLine:SetColorTexture(unpack(p.accent)) end
     if aquariumWindow.roster then
+      if aquariumWindow.roster.scrollAccent then aquariumWindow.roster.scrollAccent:SetColorTexture(unpack(p.accent)) end
       if aquariumWindow.roster.header then aquariumWindow.roster.header:SetTextColor(unpack(p.text)) end
       if aquariumWindow.roster.subtitle then aquariumWindow.roster.subtitle:SetTextColor(unpack(p.muted)) end
       if aquariumWindow.roster.headBand then aquariumWindow.roster.headBand:SetColorTexture(unpack(p.header)) end
     end
   end
   if optionsWindow then
+    if optionsWindow.headerRule then optionsWindow.headerRule:SetColorTexture(unpack(p.accent)) end
     if optionsWindow.head then optionsWindow.head:SetColorTexture(unpack(p.header)) end
     if optionsWindow.heading then optionsWindow.heading:SetTextColor(unpack(p.text)) end
     if optionsWindow.footer then optionsWindow.footer:SetColorTexture(unpack(p.header)) end
-    if optionsWindow.themeName then optionsWindow.themeName:SetText(p.name) end
+    if optionsWindow.themeName then optionsWindow.themeName:SetText(p.name); optionsWindow.themeName:SetTextColor(unpack(p.accent)) end
+    if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
     if optionsWindow.activatePage and optionsWindow.activePage then
       optionsWindow.activatePage(optionsWindow.activePage)
     end
+  end
+  if castTimerWindow then
+    if castTimerWindow.caption then castTimerWindow.caption:SetTextColor(unpack(p.gold)) end
+    if castTimerWindow.clock then castTimerWindow.clock:SetTextColor(unpack(p.accent)) end
   end
   if aquariumController.tempWidget then
     if aquariumController.tempWidget.readout then aquariumController.tempWidget.readout:SetTextColor(unpack(p.gold)) end
@@ -2925,6 +2938,10 @@ local function buildChamber()
   aquariumWindow.roster.headBand:SetPoint('TOPLEFT',3,-3)
   aquariumWindow.roster.headBand:SetPoint('TOPRIGHT',-3,-3)
   aquariumWindow.roster.headBand:SetHeight(76)
+  aquariumWindow.roster.scrollAccent=aquariumWindow.roster:CreateTexture(nil,'BORDER')
+  aquariumWindow.roster.scrollAccent:SetPoint('TOPLEFT',aquariumWindow.roster,'TOPLEFT',14,-79)
+  aquariumWindow.roster.scrollAccent:SetPoint('TOPRIGHT',aquariumWindow.roster,'TOPRIGHT',-14,-79)
+  aquariumWindow.roster.scrollAccent:SetHeight(2)
   aquariumWindow.roster.header=label(aquariumWindow.roster,'YOUR FISH COLLECTION',14,15,-14,.95,.81,.48)
   aquariumWindow.roster.header:SetWidth(178)
   aquariumWindow.roster.subtitle=label(aquariumWindow.roster,'Hover to find a fish in the tank',10,15,-57,.68,.89,.86)
@@ -3450,6 +3467,10 @@ local function buildSettings()
   head:SetHeight(43)
   head:SetColorTexture(.15,.26,.28,.98)
   optionsWindow.head=head
+  optionsWindow.headerRule=optionsWindow:CreateTexture(nil,'BORDER')
+  optionsWindow.headerRule:SetPoint('TOPLEFT',optionsWindow,'TOPLEFT',10,-45)
+  optionsWindow.headerRule:SetPoint('TOPRIGHT',optionsWindow,'TOPRIGHT',-10,-45)
+  optionsWindow.headerRule:SetHeight(2)
   local dragHandle = CreateFrame('Frame', nil, optionsWindow)
   dragHandle:SetPoint('TOPLEFT', optionsWindow, 'TOPLEFT', 4, -4)
   dragHandle:SetSize(398, 37)
@@ -3512,6 +3533,7 @@ local function buildSettings()
   local function section(page,name,y)
     local strip=page:CreateTexture(nil,'BACKGROUND')
     strip:SetColorTexture(.18,.34,.36,.35)
+    aquariumController.themeAccentTextures[strip]=true
     strip:SetPoint('TOPLEFT',page,'TOPLEFT',7,y+2)
     strip:SetPoint('TOPRIGHT',page,'TOPRIGHT',-7,y+2)
     strip:SetHeight(24)
@@ -3675,7 +3697,7 @@ local function buildSettings()
   footer:SetPoint('BOTTOMLEFT',2,2)
   footer:SetPoint('BOTTOMRIGHT',-2,2)
   footer:SetHeight(44)
-  label(optionsWindow,'VIBE  /  LIVING WATERS',11,19,-589,.69,.87,.83)
+  label(optionsWindow,'VIBE  /  AQUARIUM 4.0',11,19,-589,.69,.87,.83)
   optionsWindow.themeName=label(optionsWindow,'',11,306,-589,.70,.93,.89)
   function optionsWindow:Refresh()
     for _,b in ipairs(self.checks) do b:Refresh() end
