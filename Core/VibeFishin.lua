@@ -3404,7 +3404,7 @@ end
 
 -- Builds and wires the options window and its settings tabs.
 local function buildSettings()
-  optionsWindow = ui(UIParent, 454, 554, 'CENTER', UIParent, characterSettings.settingsX or 0, characterSettings.settingsY or 18)
+  optionsWindow = ui(UIParent, 454, 620, 'CENTER', UIParent, characterSettings.settingsX or 0, characterSettings.settingsY or 18)
   optionsWindow:SetFrameStrata('DIALOG')
   backdrop(optionsWindow,{.55,.73,.69,1},{.025,.10,.13,.97})
   applyAlpha(optionsWindow)
@@ -3413,6 +3413,7 @@ local function buildSettings()
   head:SetPoint('TOPRIGHT',-2,-2)
   head:SetHeight(43)
   head:SetColorTexture(.15,.26,.28,.98)
+  optionsWindow.head=head
   local dragHandle = CreateFrame('Frame', nil, optionsWindow)
   dragHandle:SetPoint('TOPLEFT', optionsWindow, 'TOPLEFT', 4, -4)
   dragHandle:SetSize(398, 37)
@@ -3425,25 +3426,27 @@ local function buildSettings()
     local px, py = UIParent:GetCenter()
     if cx and px then characterSettings.settingsX, characterSettings.settingsY = cx-px, cy-py end
   end)
-  local heading=label(optionsWindow,'VIBEFISHIN  |cffcba968OPTIONS|r',17,19,-15,.98,.85,.57)
-  label(optionsWindow,'DRAG TO MOVE',9,285,-19,.49,.78,.73)
+  local heading=label(optionsWindow,'VIBE  /  SETTINGS',18,19,-14,.98,.85,.57)
+  optionsWindow.heading=heading
+  label(optionsWindow,'DRAG HEADER TO MOVE',9,268,-20,.49,.78,.73)
   btn(optionsWindow,'×',26,24,416,-11,function()optionsWindow:Hide() end)
 
   optionsWindow.checks = {}
   optionsWindow.sliders = {}
   optionsWindow.pages = {}
   optionsWindow.tabs = {}
-  local names = {'Fishing', 'Aquarium', 'Cinematics', 'Display', 'Performance'}
+  local names = {'Fishing', 'Aquarium', 'Cinematics', 'Display', 'Performance', 'Themes'}
   local descriptions = {
     'Pole reminders, bait and player actions',
     'Your aquarium, fish behavior and layout',
     'Catch reveals, splash effects and cast timer',
     'Value sources and HUD presentation',
     'Animation update rates and lower-power aquarium mode',
+    'Select an aquarium-wide interface and window style',
   }
   local function makePage(index)
     local frame=CreateFrame('Frame',nil,optionsWindow)
-    frame:SetPoint('TOPLEFT',optionsWindow,'TOPLEFT',13,-112)
+    frame:SetPoint('TOPLEFT',optionsWindow,'TOPLEFT',13,-150)
     frame:SetPoint('BOTTOMRIGHT',optionsWindow,'BOTTOMRIGHT',-13,52)
     local cap=label(frame,descriptions[index],11,12,-7,.60,.84,.84)
     frame:Hide()
@@ -3453,13 +3456,19 @@ local function buildSettings()
   local function activatePage(index)
     optionsWindow.activePage = index
     for i, page in ipairs(optionsWindow.pages) do page:SetShown(i==index) end
+    local palette=aquariumController.currentTheme()
     for i, tab in ipairs(optionsWindow.tabs) do
-      tab:SetBackdropColor(i==index and .16 or .055, i==index and .38 or .17, i==index and .37 or .20, 1)
-      tab:SetBackdropBorderColor(i==index and .86 or .38, i==index and .74 or .56, i==index and .44 or .56, 1)
+      aquariumController.styleThemeFrame(tab,'button')
+      if not palette.blizzard then tab:SetBackdropColor(unpack(i==index and palette.hover or palette.button)) end
+      tab:SetBackdropBorderColor(unpack(i==index and palette.accent or palette.border))
+      if tab.text then tab.text:SetTextColor(unpack(i==index and palette.accent or palette.text)) end
     end
   end
+  optionsWindow.activatePage=activatePage
   for i,name in ipairs(names) do
-    local tab=btn(optionsWindow,name,83,30,13+(i-1)*85,-55,function()activatePage(i) end)
+    local col=(i-1)%3
+    local row=math.floor((i-1)/3)
+    local tab=btn(optionsWindow,name,137,28,13+col*141,-54-row*34,function()activatePage(i) end)
     optionsWindow.tabs[i]=tab
     makePage(i)
   end
@@ -3585,17 +3594,60 @@ local function buildSettings()
   perfInfo:SetWidth(379)
   perfInfo:SetJustifyH('LEFT')
 
+  local themes=optionsWindow.pages[6]
+  section(themes,'Interface theme gallery',-38)
+  optionsWindow.themeCards={}
+  for index, themeKey in ipairs(aquariumController.themeOrder) do
+    local palette=aquariumController.themePalettes[themeKey]
+    local col=(index-1)%2
+    local row=math.floor((index-1)/2)
+    local px=12+col*204
+    local py=-75-row*79
+    local card=btn(themes,'',194,72,px,py,function()
+      characterSettings.themeID=themeKey
+      aquariumController.applyTheme()
+      if optionsWindow.RefreshThemeCards then optionsWindow:RefreshThemeCards() end
+    end)
+    card.text:SetText('')
+    local swatch=card:CreateTexture(nil,'ARTWORK')
+    swatch:SetSize(32,40)
+    swatch:SetPoint('LEFT',card,'LEFT',10,0)
+    swatch:SetColorTexture(unpack(palette.accent))
+    local name=label(card,palette.name,12,51,-11,unpack(palette.text))
+    name:SetWidth(130)
+    local desc=label(card,palette.description,9,51,-34,unpack(palette.muted))
+    desc:SetWidth(132)
+    desc:SetHeight(29)
+    desc:SetJustifyH('LEFT')
+    optionsWindow.themeCards[index]={button=card,key=themeKey,name=name,description=desc}
+  end
+  function optionsWindow:RefreshThemeCards()
+    for _,entry in ipairs(self.themeCards) do
+      local pal=aquariumController.themePalettes[entry.key]
+      local selected=entry.key==characterSettings.themeID
+      entry.button:SetBackdropBorderColor(unpack(selected and pal.accent or aquariumController.currentTheme().border))
+      entry.name:SetTextColor(unpack(selected and pal.accent or aquariumController.currentTheme().text))
+      entry.description:SetTextColor(unpack(aquariumController.currentTheme().muted))
+    end
+  end
+  local hint=label(themes,'Changes apply immediately and persist per character.',10,14,-400,.66,.85,.82)
+  hint:SetWidth(385)
+
   local footer=optionsWindow:CreateTexture(nil,'BACKGROUND')
   footer:SetColorTexture(.15,.25,.25,.95)
+  optionsWindow.footer=footer
   footer:SetPoint('BOTTOMLEFT',2,2)
   footer:SetPoint('BOTTOMRIGHT',-2,2)
   footer:SetHeight(44)
-  label(optionsWindow,'Relax, cast, collect.',11,19,-521,.69,.87,.83)
+  label(optionsWindow,'VIBE  /  LIVING WATERS',11,19,-589,.69,.87,.83)
+  optionsWindow.themeName=label(optionsWindow,'',11,306,-589,.70,.93,.89)
   function optionsWindow:Refresh()
     for _,b in ipairs(self.checks) do b:Refresh() end
     for _,s in ipairs(self.sliders) do s.Render() end
   end
   activatePage(2)
+  aquariumController.applyTheme()
+  optionsWindow:RefreshThemeCards()
   optionsWindow:Hide()
 end
 
