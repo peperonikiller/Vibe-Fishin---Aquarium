@@ -2793,31 +2793,47 @@ local function buildChamber()
   aquariumWindow = ui(UIParent, characterSettings.width or 440, characterSettings.height or 310, 'CENTER', UIParent, characterSettings.x or 0, characterSettings.y or 0)
   aquariumWindow:SetFrameStrata('MEDIUM')
   backdrop(aquariumWindow, {0.48, 0.70, 0.67, 1}, {0.03, 0.10, 0.13, 0.94})
+  aquariumController.styleThemeFrame(aquariumWindow,'panel')
   applyAlpha(aquariumWindow)
 
   aquariumWindow.header = aquariumWindow:CreateTexture(nil, 'BACKGROUND')
   aquariumWindow.header:SetColorTexture(0.22, 0.16, 0.08, 0.94)
   aquariumWindow.header:SetPoint('TOPLEFT', 2, -2)
   aquariumWindow.header:SetPoint('TOPRIGHT', -2, -2)
-  aquariumWindow.header:SetHeight(39)
+  aquariumWindow.header:SetHeight(52)
 
   aquariumWindow.trim = aquariumWindow:CreateTexture(nil, 'BORDER')
   aquariumWindow.trim:SetColorTexture(0.73, 0.58, 0.26, 0.35)
-  aquariumWindow.trim:SetPoint('TOPLEFT', 2, -40)
-  aquariumWindow.trim:SetPoint('TOPRIGHT', -2, -40)
-  aquariumWindow.trim:SetHeight(1)
+  aquariumWindow.trim:SetPoint('TOPLEFT', 8, -52)
+  aquariumWindow.trim:SetPoint('TOPRIGHT', -8, -52)
+  aquariumWindow.trim:SetHeight(2)
+  aquariumWindow.footer=aquariumWindow:CreateTexture(nil,'BACKGROUND')
+  aquariumWindow.footer:SetPoint('BOTTOMLEFT',aquariumWindow,'BOTTOMLEFT',3,3)
+  aquariumWindow.footer:SetPoint('BOTTOMRIGHT',aquariumWindow,'BOTTOMRIGHT',-3,3)
+  aquariumWindow.footer:SetHeight(87)
+  aquariumWindow.footerLine=aquariumWindow:CreateTexture(nil,'BORDER')
+  aquariumWindow.footerLine:SetPoint('BOTTOMLEFT',aquariumWindow,'BOTTOMLEFT',9,90)
+  aquariumWindow.footerLine:SetPoint('BOTTOMRIGHT',aquariumWindow,'BOTTOMRIGHT',-9,90)
+  aquariumWindow.footerLine:SetHeight(1)
 
-  aquariumWindow.title = label(aquariumWindow, '✦  V I B E F I S H I N', 16, 16, -11, 0.98, 0.82, 0.49)
-  aquariumWindow.status = label(aquariumWindow, '● FISHING MODE ACTIVE', 9, 18, -28, .46, .89, .79)
-  aquariumWindow.hideButton=btn(aquariumWindow,'×',24,22,(characterSettings.width or 370)-30,-8,function()
+  aquariumWindow.brandIcon=aquariumWindow:CreateTexture(nil,'ARTWORK')
+  aquariumWindow.brandIcon:SetTexture('Interface\\Icons\\INV_Misc_Fish_02')
+  aquariumWindow.brandIcon:SetTexCoord(.08,.92,.08,.92)
+  aquariumWindow.brandIcon:SetSize(31,31)
+  aquariumWindow.brandIcon:SetPoint('TOPLEFT',aquariumWindow,'TOPLEFT',13,-10)
+  aquariumWindow.title = label(aquariumWindow, 'VIBE  /  AQUARIUM', 16, 52, -9, 0.98, 0.82, 0.49)
+  aquariumWindow.status = label(aquariumWindow, '● FISHING MODE ACTIVE', 9, 53, -31, .46, .89, .79)
+  aquariumWindow.hideButton=btn(aquariumWindow,'X',25,24,(characterSettings.width or 370)-35,-13,function()
     -- Closing the tank is independent of fishing mode; uncheck tank visibility.
     characterSettings.catchPanel=false
     if optionsWindow and optionsWindow.Refresh then optionsWindow:Refresh() end
     updateStatus()
   end)
 
-  aquariumWindow.tank = ui(aquariumWindow, (characterSettings.width or 370) - 22, (characterSettings.height or 258) - 124, 'TOPLEFT', aquariumWindow, 11, -49)
+  aquariumWindow.tank = ui(aquariumWindow, (characterSettings.width or 370) - 22, (characterSettings.height or 258) - 154, 'TOPLEFT', aquariumWindow, 11, -61)
   backdrop(aquariumWindow.tank, {.36, .65, .59, 1}, {.02, .11, .14, .95})
+  aquariumController.themeFrames[aquariumWindow.tank]='glass'
+  aquariumController.styleThemeFrame(aquariumWindow.tank,'glass')
   aquariumWindow.tankTop = aquariumWindow.tank:CreateTexture(nil, 'BACKGROUND')
   aquariumWindow.tankTop:SetPoint('TOPLEFT', 2, -2)
   aquariumWindow.tankTop:SetPoint('TOPRIGHT', -2, -2)
@@ -2828,6 +2844,11 @@ local function buildChamber()
   aquariumWindow.water:SetPoint('TOPLEFT', 2, -14)
   aquariumWindow.water:SetPoint('BOTTOMRIGHT', -2, 2)
   aquariumWindow.water:SetColorTexture(0.02, 0.38, 0.43, 0.26)
+  aquariumWindow.glassGlint=aquariumWindow.tank:CreateTexture(nil,'BORDER')
+  aquariumWindow.glassGlint:SetPoint('TOPLEFT',aquariumWindow.tank,'TOPLEFT',10,-16)
+  aquariumWindow.glassGlint:SetPoint('BOTTOMLEFT',aquariumWindow.tank,'BOTTOMLEFT',10,10)
+  aquariumWindow.glassGlint:SetWidth(2)
+  aquariumWindow.glassGlint:SetColorTexture(.83,1,1,.13)
 
   aquariumWindow.glow = aquariumWindow.tank:CreateTexture(nil, 'BORDER')
   aquariumWindow.glow:SetPoint('TOPLEFT', 8, -20)
@@ -2894,24 +2915,30 @@ local function buildChamber()
     if aquariumWindow.roster:IsShown() and aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
   end)
   aquariumWindow.roster=CreateFrame('Frame',nil,aquariumWindow,'BackdropTemplate')
-  aquariumWindow.roster:SetSize(270,384)
+  aquariumWindow.roster:SetSize(302,424)
   aquariumWindow.roster:SetFrameStrata('HIGH')
   aquariumWindow.roster:SetFrameLevel(aquariumWindow:GetFrameLevel()+18)
   backdrop(aquariumWindow.roster,{.58,.78,.69,1},{.025,.09,.11,.97})
-  aquariumWindow.roster:SetPoint('TOPLEFT',aquariumWindow,'TOPRIGHT',8,-25)
-  aquariumWindow.roster.header=label(aquariumWindow.roster,'AQUARIUM RESIDENTS',13,12,-13,.95,.81,.48)
-  aquariumWindow.roster.header:SetWidth(235)
-  aquariumWindow.roster.subtitle=label(aquariumWindow.roster,'Hover a fish for its details',10,12,-57,.68,.89,.86)
+  aquariumController.styleThemeFrame(aquariumWindow.roster,'panel')
+  aquariumWindow.roster:SetPoint('TOPLEFT',aquariumWindow,'TOPRIGHT',10,-13)
+  aquariumWindow.roster.headBand=aquariumWindow.roster:CreateTexture(nil,'BACKGROUND')
+  aquariumWindow.roster.headBand:SetPoint('TOPLEFT',3,-3)
+  aquariumWindow.roster.headBand:SetPoint('TOPRIGHT',-3,-3)
+  aquariumWindow.roster.headBand:SetHeight(76)
+  aquariumWindow.roster.header=label(aquariumWindow.roster,'YOUR FISH COLLECTION',14,15,-14,.95,.81,.48)
+  aquariumWindow.roster.header:SetWidth(178)
+  aquariumWindow.roster.subtitle=label(aquariumWindow.roster,'Hover to find a fish in the tank',10,15,-57,.68,.89,.86)
+  aquariumWindow.roster.subtitle:SetWidth(255)
   aquariumWindow.roster.list=CreateFrame('ScrollFrame',nil,aquariumWindow.roster,'UIPanelScrollFrameTemplate')
-  aquariumWindow.roster.list:SetPoint('TOPLEFT',aquariumWindow.roster,'TOPLEFT',10,-83)
-  aquariumWindow.roster.list:SetPoint('BOTTOMRIGHT',aquariumWindow.roster,'BOTTOMRIGHT',-30,10)
+  aquariumWindow.roster.list:SetPoint('TOPLEFT',aquariumWindow.roster,'TOPLEFT',12,-93)
+  aquariumWindow.roster.list:SetPoint('BOTTOMRIGHT',aquariumWindow.roster,'BOTTOMRIGHT',-29,12)
   aquariumWindow.roster.content=CreateFrame('Frame',nil,aquariumWindow.roster.list)
-  aquariumWindow.roster.content:SetSize(225,1)
+  aquariumWindow.roster.content:SetSize(258,1)
   aquariumWindow.roster.list:SetScrollChild(aquariumWindow.roster.content)
   aquariumWindow.roster.rows={}
   aquariumWindow.roster:Hide()
   aquariumWindow.roster.showJournal=false
-  local journalToggle=btn(aquariumWindow.roster,'JOURNAL',76,21,177,-37,function()
+  local journalToggle=btn(aquariumWindow.roster,'JOURNAL',92,26,195,-12,function()
     local panel=aquariumWindow.roster
     panel.showJournal=not panel.showJournal
     if aquariumController.clearJournalFlash then aquariumController.clearJournalFlash() end
@@ -3180,15 +3207,15 @@ local function buildChamber()
 
   function aquariumWindow:RefreshLayout()
     self:SetSize(characterSettings.width or 370, characterSettings.height or 258)
-    if self.header then self.header:SetHeight(39) end
+    if self.header then self.header:SetHeight(52) end
     if self.hideButton then
       self.hideButton:ClearAllPoints()
-      self.hideButton:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-30,-8)
+      self.hideButton:SetPoint('TOPLEFT',self,'TOPLEFT',(characterSettings.width or 370)-35,-13)
     end
     if self.tank then
       self.tank:ClearAllPoints()
-      self.tank:SetPoint('TOPLEFT', self, 'TOPLEFT', 11, -49)
-      self.tank:SetSize((characterSettings.width or 370) - 22, (characterSettings.height or 258) - 124)
+      self.tank:SetPoint('TOPLEFT', self, 'TOPLEFT', 11, -61)
+      self.tank:SetSize((characterSettings.width or 370) - 22, (characterSettings.height or 258) - 154)
     end
     if aquariumCanvas then
       aquariumCanvas:SetSize(self.tank:GetWidth() - 8, self.tank:GetHeight() - 18)
@@ -3214,12 +3241,12 @@ local function buildChamber()
     end
     if self.roster then
       self.roster:ClearAllPoints()
-      self.roster:SetPoint('TOPLEFT',self,'TOPRIGHT',8,-25)
+      self.roster:SetPoint('TOPLEFT',self,'TOPRIGHT',10,-13)
       local screenRight=UIParent:GetRight() or 0
       local tankRight=self:GetRight() or 0
-      if tankRight+280>screenRight then
+      if tankRight+316>screenRight then
         self.roster:ClearAllPoints()
-        self.roster:SetPoint('TOPRIGHT',self,'TOPLEFT',-8,-25)
+        self.roster:SetPoint('TOPRIGHT',self,'TOPLEFT',-10,-13)
       end
     end
     if self.settingsButton then
