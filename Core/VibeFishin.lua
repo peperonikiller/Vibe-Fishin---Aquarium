@@ -227,6 +227,7 @@ aquariumController.themeFrames={}
 aquariumController.themeButtons={}
 aquariumController.themeAccentTextures={}
 aquariumController.themeTextObjects={}
+aquariumController.themeTintTextures={}
 aquariumController.currentTheme=function()
   return aquariumController.themePalettes[(characterSettings and characterSettings.themeID) or 'abyss']
     or aquariumController.themePalettes.abyss
@@ -265,6 +266,9 @@ aquariumController.applyTheme=function()
   end
   for font,role in pairs(aquariumController.themeTextObjects) do
     if font then font:SetTextColor(unpack(p[role] or p.text)) end
+  end
+  for texture in pairs(aquariumController.themeTintTextures) do
+    if texture then texture:SetVertexColor(unpack(p.accent)) end
   end
   if catchRevealWindow then
     if catchRevealWindow.header then catchRevealWindow.header:SetColorTexture(unpack(p.header)) end
@@ -399,7 +403,7 @@ local function checkButton(p, txt, x, y, key, onChange)
   title:SetTextColor(0.89,0.96,0.90)
   title:SetText(txt)
   aquariumController.themeTextObjects[title]='text'
-  aquariumController.themeAccentTextures[checked]=.90
+  aquariumController.themeTintTextures[checked]=true
   function b:Refresh()
     checked:SetShown(not not characterSettings[key])
     square:SetBackdropColor(characterSettings[key] and 0.07 or 0.02, characterSettings[key] and 0.27 or 0.08, characterSettings[key] and 0.25 or 0.1, 1)
