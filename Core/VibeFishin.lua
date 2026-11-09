@@ -395,6 +395,7 @@ local function checkButton(p, txt, x, y, key, onChange)
   square:SetSize(17, 17)
   square:SetPoint('LEFT', b, 'LEFT', 10, 0)
   backdrop(square, {0.46,0.75,0.71,1}, {0.02,0.08,0.10,1})
+  aquariumController.themeFrames[square]='button'
   local checked = square:CreateTexture(nil, 'OVERLAY')
   checked:SetTexture('Interface\\Buttons\\UI-CheckBox-Check')
   checked:SetSize(22,22)
@@ -437,6 +438,7 @@ local function simpleSlider(parent, title, x, y, width, low, high, step, key, fm
   bar:SetSize(width, 12)
   bar:SetPoint('BOTTOMLEFT', 0, 2)
   backdrop(bar, {0.23, 0.58, 0.56, 1}, {0.02, 0.09, 0.11, 0.95})
+  aquariumController.themeFrames[bar]='button'
 
   local fill = bar:CreateTexture(nil, 'ARTWORK')
   fill:SetPoint('LEFT', 1, 0)
@@ -3261,6 +3263,7 @@ local function buildChamber()
   aquariumController.tempWidget=CreateFrame('Frame',nil,aquariumWindow,'BackdropTemplate')
   aquariumController.tempWidget:SetSize(166,36)
   backdrop(aquariumController.tempWidget,{.33,.59,.53,.8},{.028,.10,.13,.83})
+  aquariumController.themeFrames[aquariumController.tempWidget]='button'
   aquariumController.tempWidget.readout=label(aquariumController.tempWidget,'',11,48,-4,1,.78,.43)
   aquariumController.tempWidget.state=label(aquariumController.tempWidget,'',8,48,-18,.42,.9,.48)
   aquariumController.tempWidget.state:SetWidth(51)
