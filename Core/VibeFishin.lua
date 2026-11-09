@@ -1685,12 +1685,16 @@ local function revealCatch(id, count, itemLink)
   catchRevealWindow.icon:SetTexture(imageIcon or 'Interface\\Icons\\INV_Misc_Fish_02')
   queuedCatch={id=id,icon=imageIcon or icon,count=count or 1}
   if flyingCatchIcon then flyingCatchIcon:Hide() end
+  if finishBobberHandoff then finishBobberHandoff() end
   previewClock=0
   catchPreviewEnds=(GetTime and GetTime() or 0)+5.5
   catchRevealWindow:ClearAllPoints()
   catchRevealWindow:SetPoint('TOP', UIParent, 'TOP', 0, -130)
   catchRevealWindow:SetAlpha(0)
   catchRevealWindow:Show()
+  -- The timer may already have hidden after loot, but its bobber keeps
+  -- its last screen position for the transition to the catch-preview fish.
+  if beginBobberHandoff then beginBobberHandoff() end
 end
 
 -- Creates the seaweed strands and segment textures once.
@@ -2274,6 +2278,7 @@ local function animateCatchFlight(dt)
     end
   end
   if t>=1 then
+    if finishBobberHandoff then finishBobberHandoff() end
     flyingCatchIcon:Hide()
     if flyingCatchIcon.trails then for _,trail in ipairs(flyingCatchIcon.trails) do trail:Hide() end end
     splashAt(flyingCatchIcon.endX, flyingCatchIcon.endY)
@@ -4248,6 +4253,9 @@ local function update(_, elapsed)
       end
     end
   end
+
+  -- Follow the final position of the preview card or the flying fish.
+  if animateBobberHandoff then animateBobberHandoff(heartbeatElapsed) end
 
   if aquariumWindow and aquariumWindow.roster and aquariumWindow.roster:IsShown() then
     if not aquariumController.nextRosterUpdate or now>=aquariumController.nextRosterUpdate then
