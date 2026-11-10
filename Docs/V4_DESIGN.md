@@ -36,3 +36,12 @@ The Classic palette uses Blizzard UI textures already present in the client, ref
 8. Recheck low-impact mode on slower hardware.
 
 No visual game-client testing is performed by GitHub Actions. Automated CI validates Lua 5.1 parsing and the packaging and media inventory. This design preserves v3 schema and does not migrate or delete fish data.
+
+## 4.1 Journal and layout guidelines
+
+- Species index is a selectable, scrollable, icon-led list. The associated profile pane exposes genuine stored metadata; it does not claim unavailable fish sizes or fabricated statistics.
+- Profile displays catch count, rarity, cosmetic variant discovery, last catch date, living residents and collection share.
+- Awards shows all eight milestones and progress. Recent stores up to 40 actual catch events, never counting visual or inventory refreshes.
+- The Classic theme uses the native Blizzard dialog border only on large top-level frames. Small button and input backdrops use a flat single-pixel border instead of stretching the Blizzard button-up graphic.
+- Frame anchors are relative to parents and re-evaluated on panel mode changes; panel width differs between fish list and journal. Text is fixed-width and given distinct anchors to avoid collisions on scaled UIs.
+- In-game QA remains required at the user's actual UI scale.
