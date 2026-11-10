@@ -39,7 +39,8 @@ if version.startswith('4.'):
     assert "local names = {'Fishing', 'Aquarium', 'Cinematics', 'Display', 'Performance', 'Theme'}" in lua, 'Missing settings Theme tab'
     assert 'aquariumController.applyTheme=function()' in lua, 'Missing dynamic theme apply'
     assert "themeID = 'abyss'" in lua, 'Missing persisted default theme'
-    assert 'UI-DialogBox-Border' in lua and 'UI-DialogBox-Background' in lua, 'Missing native Blizzard Classic art'
+    assert 'UI-DialogBox-Border' in lua and 'Interface\\\\Buttons\\\\WHITE8X8' in lua, 'Missing native Classic border or clean button background'
+    assert "role=='window'" in lua, 'Classic frame border must be restricted to top-level windows'
     assert 'Docs/V4_DESIGN.md' in [str(p.relative_to(ROOT)) for p in (ROOT/'Docs').glob('*.md')], 'Missing v4 design documentation'
 
 textures=set(re.findall(r'Interface\\\\AddOns\\\\VibeFishin\\\\Media\\\\([a-zA-Z0-9_.-]+)',lua))
