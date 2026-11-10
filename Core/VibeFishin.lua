@@ -3310,7 +3310,11 @@ local function buildChamber()
           panel.rows[i]=row
         end
         row:SetSize(218,42)
+        -- These rows are pooled with the fish list; create missing regions
+        -- when switching from FISH to JOURNAL for the first time.
+        if not row.sub then row.sub=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall') end
         if not row.icon then row.icon=row:CreateTexture(nil,'ARTWORK') end
+        row.name:SetFont('Fonts\\FRIZQT__.TTF',12,'OUTLINE')
         row.icon:ClearAllPoints()
         row.icon:SetPoint('LEFT',row,'LEFT',8,0)
         row.icon:SetSize(29,29)
@@ -3400,7 +3404,11 @@ local function buildChamber()
       row.name:ClearAllPoints()
       row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
       row.name:SetWidth(208)
+      row.name:SetFont('Fonts\\FRIZQT__.TTF',11,'OUTLINE')
       row:SetSize(254,28)
+      row.icon:ClearAllPoints()
+      row.icon:SetPoint('LEFT',row,'LEFT',6,0)
+      row.icon:SetSize(22,22)
       if row.sub then row.sub:Hide() end
       row:SetScript('OnClick',nil)
       row:SetScript('OnEnter',showResidentTooltip)
