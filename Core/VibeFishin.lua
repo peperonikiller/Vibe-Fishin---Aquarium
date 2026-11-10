@@ -1,4 +1,4 @@
--- VibeFishin v4.0.1 - WoW Forever (Interface 16001)
+-- VibeFishin v4.1.0 - WoW Forever (Interface 16001)
 -- Main controller for WoW Forever. Player actions are never automated.
 local ADDON = ...
 local aquariumController = CreateFrame('Frame')
@@ -239,18 +239,21 @@ aquariumController.styleThemeFrame=function(frame,role)
   local edge=p.border
   local fill=(role=='button') and p.button or p.panel
   if role=='glass' then fill=p.water end
-  if p.blizzard and role=='panel' then
-    frame:SetBackdrop({bgFile='Interface\\DialogFrame\\UI-DialogBox-Background',
-      edgeFile='Interface\\DialogFrame\\UI-DialogBox-Border',tile=true,tileSize=32,
-      edgeSize=22,insets={left=8,right=8,top=8,bottom=8}})
-    frame:SetBackdropColor(1,1,1,1)
-    frame:SetBackdropBorderColor(1,.87,.67,1)
+  -- Use Blizzard's sliced border artwork ONLY for large top-level windows.
+  -- A whole button image as a backdrop is stretched/tiled and produces the
+  -- red strips seen at reduced UI scales in the v4.0 screenshots.
+  local largeClassic = p.blizzard and role=='window'
+  if largeClassic then
+    frame:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',
+      edgeFile='Interface\\DialogFrame\\UI-DialogBox-Border',
+      tile=false,edgeSize=24,insets={left=10,right=10,top=10,bottom=10}})
+    frame:SetBackdropColor(unpack(p.panel))
+    frame:SetBackdropBorderColor(1,.86,.58,1)
   else
-    frame:SetBackdrop({bgFile=(p.blizzard and role=='button') and 'Interface\\Buttons\\UI-Panel-Button-Up' or 'Interface\\Buttons\\WHITE8X8',
-      edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=2,
-      insets={left=2,right=2,top=2,bottom=2}})
-    if p.blizzard and role=='button' then frame:SetBackdropColor(1,1,1,1)
-    else frame:SetBackdropColor(unpack(fill)) end
+    frame:SetBackdrop({bgFile='Interface\\Buttons\\WHITE8X8',
+      edgeFile='Interface\\Buttons\\WHITE8X8',edgeSize=1,
+      insets={left=1,right=1,top=1,bottom=1}})
+    frame:SetBackdropColor(unpack(fill))
     frame:SetBackdropBorderColor(unpack(edge))
   end
 end
@@ -2835,7 +2838,8 @@ local function buildChamber()
   aquariumWindow = ui(UIParent, characterSettings.width or 440, characterSettings.height or 310, 'CENTER', UIParent, characterSettings.x or 0, characterSettings.y or 0)
   aquariumWindow:SetFrameStrata('MEDIUM')
   backdrop(aquariumWindow, {0.48, 0.70, 0.67, 1}, {0.03, 0.10, 0.13, 0.94})
-  aquariumController.styleThemeFrame(aquariumWindow,'panel')
+  aquariumController.themeFrames[aquariumWindow]='window'
+  aquariumController.styleThemeFrame(aquariumWindow,'window')
   applyAlpha(aquariumWindow)
 
   aquariumWindow.header = aquariumWindow:CreateTexture(nil, 'BACKGROUND')
@@ -2961,7 +2965,8 @@ local function buildChamber()
   aquariumWindow.roster:SetFrameStrata('HIGH')
   aquariumWindow.roster:SetFrameLevel(aquariumWindow:GetFrameLevel()+18)
   backdrop(aquariumWindow.roster,{.58,.78,.69,1},{.025,.09,.11,.97})
-  aquariumController.styleThemeFrame(aquariumWindow.roster,'panel')
+  aquariumController.themeFrames[aquariumWindow.roster]='window'
+  aquariumController.styleThemeFrame(aquariumWindow.roster,'window')
   aquariumWindow.roster:SetPoint('TOPLEFT',aquariumWindow,'TOPRIGHT',10,-13)
   aquariumWindow.roster.headBand=aquariumWindow.roster:CreateTexture(nil,'BACKGROUND')
   aquariumWindow.roster.headBand:SetPoint('TOPLEFT',3,-3)
@@ -3511,6 +3516,7 @@ local function buildSettings()
   optionsWindow = ui(UIParent, 454, 620, 'CENTER', UIParent, characterSettings.settingsX or 0, characterSettings.settingsY or 18)
   optionsWindow:SetFrameStrata('DIALOG')
   backdrop(optionsWindow,{.55,.73,.69,1},{.025,.10,.13,.97})
+  aquariumController.themeFrames[optionsWindow]='window'
   applyAlpha(optionsWindow)
   local head=optionsWindow:CreateTexture(nil,'BACKGROUND')
   head:SetPoint('TOPLEFT',2,-2)
