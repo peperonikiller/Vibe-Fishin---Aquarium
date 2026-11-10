@@ -1515,6 +1515,11 @@ end
 aquariumController.recordFishDiscovery = function(resident)
   local journal = characterSettings.catchJournal
   journal.totalCaught = (journal.totalCaught or 0) + 1
+  -- Persist actual catch events only. Refreshes and inventory scans never log catches.
+  journal.recent = journal.recent or {}
+  table.insert(journal.recent,1,{species=resident.species,rarity=resident.rarity,
+    variant=resident.variant,at=(time and time() or 0),uid=resident.uid})
+  while #journal.recent>40 do table.remove(journal.recent) end
   local speciesKey = tostring(resident.species)
   local entry = journal.species[speciesKey] or {caught=0,bestRarity=1,variants={}}
   entry.caught = entry.caught + 1
@@ -3038,24 +3043,49 @@ local function buildChamber()
     panel.journalMode='awards'
     if aquariumController.renderJournalDetail then aquariumController.renderJournalDetail() end
   end)
+  panel.historyTab=btn(panel,'RECENT',80,23,433,-60,function()
+    panel.journalMode='recent'
+    if aquariumController.renderJournalDetail then aquariumController.renderJournalDetail() end
+  end)
   panel.profileTab:Hide()
   panel.awardsTab:Hide()
+  panel.historyTab:Hide()
 
   aquariumController.renderJournalDetail=function()
     if not panel.detail or not panel.showJournal then return end
     local palette=aquariumController.currentTheme()
     aquariumController.styleThemeFrame(panel.detail,'button')
-    for _,tab in ipairs({panel.profileTab,panel.awardsTab}) do
+    for _,tab in ipairs({panel.profileTab,panel.awardsTab,panel.historyTab}) do
       aquariumController.styleThemeFrame(tab,'button')
     end
     panel.profileTab:SetBackdropBorderColor(unpack(panel.journalMode=='species' and palette.accent or palette.border))
     panel.awardsTab:SetBackdropBorderColor(unpack(panel.journalMode=='awards' and palette.accent or palette.border))
+    panel.historyTab:SetBackdropBorderColor(unpack(panel.journalMode=='recent' and palette.accent or palette.border))
     panel.detailTitle:SetTextColor(unpack(palette.gold))
     panel.detailSubtitle:SetTextColor(unpack(palette.muted))
     for _,line in ipairs(panel.detailLines) do line:SetText('');line:SetTextColor(unpack(palette.text)) end
     local journal=characterSettings.catchJournal or {}
     local total=journal.totalCaught or 0
     local speciesCount=aquariumController.journalSpeciesCount()
+    if panel.journalMode=='recent' then
+      panel.detailIcon:SetTexture('Interface\\Icons\\INV_Misc_Book_09')
+      panel.detailTitle:SetText('RECENT CATCHES')
+      local recent=journal.recent or {}
+      panel.detailSubtitle:SetText(#recent..' catches saved  •  most recent first')
+      panel.detailMeta:SetText('Fishing session log\nLast 40 discoveries')
+      if #recent==0 then
+        panel.detailLines[1]:SetText('Your next catch will appear here.')
+      else
+        for i=1,math.min(8,#recent) do
+          local catch=recent[i]
+          local fishName=select(1,GetItemInfo(catch.species)) or ('Fish #'..tostring(catch.species or '?'))
+          local rarity=aquariumController.fishRarityNames[catch.rarity or 1] or 'Common'
+          local dateStamp=(date and date('%m/%d %H:%M',catch.at or 0)) or ''
+          panel.detailLines[i]:SetText(dateStamp..'  '..fishName..'  ['..rarity..']')
+        end
+      end
+      return
+    end
     if panel.journalMode=='awards' then
       panel.detailIcon:SetTexture('Interface\\Icons\\INV_Misc_Note_01')
       panel.detailTitle:SetText('ANGLER ACHIEVEMENTS')
@@ -3123,6 +3153,7 @@ local function buildChamber()
     panel.detail:SetShown(journal)
     panel.profileTab:SetShown(journal)
     panel.awardsTab:SetShown(journal)
+    panel.historyTab:SetShown(journal)
     panel.list:ClearAllPoints()
     panel.list:SetPoint('TOPLEFT',panel,'TOPLEFT',12,-96)
     if journal then
