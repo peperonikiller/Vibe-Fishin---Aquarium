@@ -2846,7 +2846,7 @@ local function buildChamber()
   backdrop(aquariumWindow, {0.48, 0.70, 0.67, 1}, {0.03, 0.10, 0.13, 0.94})
   aquariumController.themeFrames[aquariumWindow]='window'
   aquariumController.styleThemeFrame(aquariumWindow,'window')
-  applyAlpha(aquariumWindow)
+  aquariumWindow:SetAlpha(clamp(characterSettings.opacity or .94,.88,1))
 
   aquariumWindow.header = aquariumWindow:CreateTexture(nil, 'BACKGROUND')
   aquariumWindow.header:SetColorTexture(0.22, 0.16, 0.08, 0.94)
@@ -3720,7 +3720,7 @@ local function buildSettings()
   optionsWindow:SetFrameStrata('DIALOG')
   backdrop(optionsWindow,{.55,.73,.69,1},{.025,.10,.13,.97})
   aquariumController.themeFrames[optionsWindow]='window'
-  applyAlpha(optionsWindow)
+  optionsWindow:SetAlpha(1)
   local head=optionsWindow:CreateTexture(nil,'BACKGROUND')
   head:SetPoint('TOPLEFT',2,-2)
   head:SetPoint('TOPRIGHT',-2,-2)
