@@ -714,8 +714,9 @@ end
 
 -- Updates opacity consistently across aquarium, options and timer.
 local function applyThemeOpacity()
-  if aquariumWindow then applyAlpha(aquariumWindow) end
-  if optionsWindow then applyAlpha(optionsWindow) end
+  if aquariumWindow then aquariumWindow:SetAlpha(clamp(characterSettings.opacity or 0.94,.88,1)) end
+  -- Settings should remain opaque enough to read above the game world.
+  if optionsWindow then optionsWindow:SetAlpha(1) end
   if castTimerWindow then castTimerWindow:SetAlpha(clamp((characterSettings.opacity or 0.94) + 0.04, 0.25, 1)) end
 end
 
@@ -3292,6 +3293,7 @@ local function buildChamber()
         row.sub:SetHeight(13)
         row.sub:SetJustifyH('LEFT')
         row.sub:SetText('Caught '..(discovery.entry.caught or 0)..'  |  '..(aquariumController.fishRarityNames[discovery.entry.bestRarity or 1] or 'Common'))
+        row.sub:Show()
         if not row.rarityStripe then
           row.rarityStripe=row:CreateTexture(nil,'ARTWORK')
           row.rarityStripe:SetPoint('TOPLEFT',row,'TOPLEFT',1,-2)
@@ -3362,6 +3364,9 @@ local function buildChamber()
       row.name:ClearAllPoints()
       row.name:SetPoint('LEFT',row.icon,'RIGHT',7,0)
       row.name:SetWidth(208)
+      row:SetSize(254,28)
+      if row.sub then row.sub:Hide() end
+      row:SetScript('OnClick',nil)
       row:SetScript('OnEnter',showResidentTooltip)
       row:SetScript('OnLeave',hideResidentTooltip)
       row.journalSpeciesID=nil
@@ -3855,7 +3860,7 @@ local function buildSettings()
 
   local display=optionsWindow.pages[4]
   section(display,'Appearance',-38)
-  slider(display,'Window opacity','opacity',-74,.35,1,.05,'%.2f',applyThemeOpacity)
+  slider(display,'Aquarium opacity','opacity',-74,.88,1,.02,'%.2f',applyThemeOpacity)
   section(display,'Auction data',-143)
   addCheck(display,'Show estimated value of displayed aquarium fish','showFishValue',-180,updateFishValue)
   addCheck(display,'Gold border around the most valuable fish','highlightMostValuable',-213,updateFishValue)
