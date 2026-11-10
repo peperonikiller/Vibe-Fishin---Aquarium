@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.1.0] — Fishing Journal and layout refinement
+
+- Rebuilt Journal as a wide species browser and detail pane with item icons, rarity, lifetime catch totals, variant progress, resident counts and last-caught dates.
+- Added dedicated Profile, Awards and Recent tabs, including milestone progress and the latest 40 real fishing catches.
+- Corrected Classic UI styling to use Blizzard border artwork only on large windows; small controls use proper flat backdrops instead of distorted button textures.
+- Improved contrast by keeping Settings opaque and ensuring the aquarium remains readable while the game world is visible.
+- Fixed recycled journal/fish row alignment and removed stale row interactions when changing views.
+- Preserved existing v3/v4 collections, care data and settings; recent catch history starts recording after updating.
+
+
 ## [4.0.1] — Interface alignment fixes
 
 - Replaced the cramped two-column Theme gallery with readable full-width theme rows and short descriptions.
