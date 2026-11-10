@@ -2996,6 +2996,150 @@ local function buildChamber()
     aquariumController.renderFishRoster()
   end)
   aquariumWindow.roster.journalToggle=journalToggle
+  -- Journal has a persistent details pane, not a flat stream of header rows.
+  local panel=aquariumWindow.roster
+  panel.detail=CreateFrame('Frame',nil,panel,'BackdropTemplate')
+  panel.detail:SetSize(312,343)
+  panel.detail:SetPoint('TOPRIGHT',panel,'TOPRIGHT',-13,-97)
+  backdrop(panel.detail)
+  panel.detailTitle=label(panel.detail,'SPECIES PROFILE',14,15,-12,.96,.86,.55)
+  panel.detailTitle:SetWidth(270)
+  panel.detailSubtitle=label(panel.detail,'Choose a discovered fish',10,15,-36,.70,.86,.87)
+  panel.detailSubtitle:SetWidth(275)
+  panel.detailIcon=panel.detail:CreateTexture(nil,'ARTWORK')
+  panel.detailIcon:SetSize(52,52)
+  panel.detailIcon:SetPoint('TOPLEFT',panel.detail,'TOPLEFT',15,-63)
+  panel.detailIcon:SetTexCoord(.08,.92,.08,.92)
+  panel.detailIcon:SetTexture('Interface\\Icons\\INV_Misc_Fish_02')
+  panel.detailMeta=label(panel.detail,'',11,79,-69,.91,.94,.92)
+  panel.detailMeta:SetWidth(211)
+  panel.detailMeta:SetHeight(58)
+  panel.detailMeta:SetJustifyH('LEFT')
+  panel.detailLines={}
+  for k=1,8 do
+    local textLine=label(panel.detail,'',11,16,-133-(k-1)*23,.86,.94,.91)
+    textLine:SetWidth(282)
+    textLine:SetHeight(19)
+    panel.detailLines[k]=textLine
+  end
+  panel.detail:Hide()
+  panel.journalMode='species'
+  panel.selectedSpecies=nil
+  panel.profileTab=btn(panel,'PROFILE',80,23,263,-60,function()
+    panel.journalMode='species'
+    if aquariumController.renderJournalDetail then aquariumController.renderJournalDetail() end
+  end)
+  panel.awardsTab=btn(panel,'AWARDS',80,23,348,-60,function()
+    panel.journalMode='awards'
+    if aquariumController.renderJournalDetail then aquariumController.renderJournalDetail() end
+  end)
+  panel.profileTab:Hide()
+  panel.awardsTab:Hide()
+
+  aquariumController.renderJournalDetail=function()
+    if not panel.detail or not panel.showJournal then return end
+    local palette=aquariumController.currentTheme()
+    aquariumController.styleThemeFrame(panel.detail,'button')
+    for _,tab in ipairs({panel.profileTab,panel.awardsTab}) do
+      aquariumController.styleThemeFrame(tab,'button')
+    end
+    panel.profileTab:SetBackdropBorderColor(unpack(panel.journalMode=='species' and palette.accent or palette.border))
+    panel.awardsTab:SetBackdropBorderColor(unpack(panel.journalMode=='awards' and palette.accent or palette.border))
+    panel.detailTitle:SetTextColor(unpack(palette.gold))
+    panel.detailSubtitle:SetTextColor(unpack(palette.muted))
+    for _,line in ipairs(panel.detailLines) do line:SetText('');line:SetTextColor(unpack(palette.text)) end
+    local journal=characterSettings.catchJournal or {}
+    local total=journal.totalCaught or 0
+    local speciesCount=aquariumController.journalSpeciesCount()
+    if panel.journalMode=='awards' then
+      panel.detailIcon:SetTexture('Interface\\Icons\\INV_Misc_Note_01')
+      panel.detailTitle:SetText('ANGLER ACHIEVEMENTS')
+      local complete=0
+      for _,award in ipairs(aquariumController.fishMilestones) do
+        if journal.achievements and journal.achievements[award.key] then complete=complete+1 end
+      end
+      panel.detailSubtitle:SetText(complete..' of '..#aquariumController.fishMilestones..' unlocked  •  '..total..' catches')
+      panel.detailMeta:SetText('Collected achievements\nand discovery milestones')
+      for i,award in ipairs(aquariumController.fishMilestones) do
+        local isDone=journal.achievements and journal.achievements[award.key]
+        local line=panel.detailLines[i]
+        if line then
+          line:SetText((isDone and '|cff63e2a5✓|r  ' or '|cff888e92○|r  ')..award.name..(isDone and '  |cff63e2a5DONE|r' or ''))
+        end
+      end
+      return
+    end
+    local id=panel.selectedSpecies
+    local entry=id and journal.species and (journal.species[tostring(id)] or journal.species[id])
+    if not entry then
+      panel.detailIcon:SetTexture('Interface\\Icons\\INV_Misc_Fish_02')
+      panel.detailTitle:SetText('FISH ENCYCLOPEDIA')
+      panel.detailSubtitle:SetText(speciesCount..' species discovered  •  '..total..' catches')
+      panel.detailMeta:SetText('Choose a species on the left\nto see its collection record.')
+      return
+    end
+    local name,_,_,_,_,_,_,_,_,icon=GetItemInfo(id)
+    name=name or ('Fish #'..tostring(id))
+    panel.detailTitle:SetText(name)
+    panel.detailSubtitle:SetText('Species #'..tostring(id)..'  •  ' .. (entry.caught or 0)..' caught')
+    panel.detailIcon:SetTexture(icon or (GetItemIcon and GetItemIcon(id)) or 'Interface\\Icons\\INV_Misc_Fish_02')
+    panel.detailMeta:SetText('BEST DISCOVERY\n'..(aquariumController.fishRarityNames[entry.bestRarity or 1] or 'Common'))
+    local variants={}
+    for variant,found in pairs(entry.variants or {}) do
+      if found then variants[#variants+1]=aquariumController.fishVariantNames[tonumber(variant) or 1] or 'Unknown' end
+    end
+    table.sort(variants)
+    local residentCount,alive=0,0
+    for _,resident in ipairs(characterSettings.residents or {}) do
+      if resident.species==id then
+        residentCount=residentCount+1
+        if not resident.deathState then alive=alive+1 end
+      end
+    end
+    local latest=(entry.lastCaughtAt and entry.lastCaughtAt>0 and date and date('%b %d, %Y',entry.lastCaughtAt)) or 'Unknown'
+    local stats={
+      'Total catches:  '..tostring(entry.caught or 0),
+      'Best rarity:  '..(aquariumController.fishRarityNames[entry.bestRarity or 1] or 'Common'),
+      'Variants found:  '..tostring(#variants)..' / '..tostring(#aquariumController.fishVariantNames),
+      'Last discovered:  '..latest,
+      'Residents:  '..residentCount..'  ('..alive..' living)',
+      'Catch share:  '..(total>0 and string.format('%.1f%%',100*(entry.caught or 0)/total) or '0%'),
+      'Collection:  '..(speciesCount)..' species total',
+      'Variants: '..(#variants>0 and table.concat(variants,', ') or 'None')
+    }
+    for i,line in ipairs(panel.detailLines) do line:SetText(stats[i] or '') end
+  end
+
+  aquariumController.layoutJournal=function()
+    local journal=panel.showJournal
+    panel:SetSize(journal and 596 or 302,journal and 454 or 424)
+    panel.detail:SetShown(journal)
+    panel.profileTab:SetShown(journal)
+    panel.awardsTab:SetShown(journal)
+    panel.list:ClearAllPoints()
+    panel.list:SetPoint('TOPLEFT',panel,'TOPLEFT',12,-96)
+    if journal then
+      panel.list:SetSize(237,341)
+      panel.content:SetWidth(218)
+      panel.header:SetWidth(260)
+      panel.subtitle:SetWidth(560)
+    else
+      panel.list:SetPoint('BOTTOMRIGHT',panel,'BOTTOMRIGHT',-29,12)
+      panel.content:SetWidth(258)
+      panel.header:SetWidth(178)
+      panel.subtitle:SetWidth(255)
+    end
+    panel:ClearAllPoints()
+    local screenRight=UIParent:GetRight() or 0
+    local right=aquariumWindow:GetRight() or 0
+    if right+(journal and 610 or 316)>screenRight then
+      panel:SetPoint('TOPRIGHT',aquariumWindow,'TOPLEFT',-10,-13)
+    else
+      panel:SetPoint('TOPLEFT',aquariumWindow,'TOPRIGHT',10,-13)
+    end
+    if journal and aquariumController.renderJournalDetail then aquariumController.renderJournalDetail() end
+  end
+
 
   -- Select one visible resident, using UID for fish rows or species for journal rows.
   aquariumController.flashJournalFish = function(species, uid)
