@@ -2958,7 +2958,10 @@ local function buildChamber()
     aquariumWindow.roster:SetShown(not aquariumWindow.roster:IsShown())
     if not aquariumWindow.roster:IsShown() and aquariumController.clearJournalFlash then aquariumController.clearJournalFlash() end
     aquariumWindow.rosterButton.text:SetText(aquariumWindow.roster:IsShown() and '<' or '>')
-    if aquariumWindow.roster:IsShown() and aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
+    if aquariumWindow.roster:IsShown() then
+      if aquariumController.layoutJournal then aquariumController.layoutJournal() end
+      if aquariumController.renderFishRoster then aquariumController.renderFishRoster() end
+    end
   end)
   aquariumWindow.roster=CreateFrame('Frame',nil,aquariumWindow,'BackdropTemplate')
   aquariumWindow.roster:SetSize(302,424)
@@ -2993,6 +2996,7 @@ local function buildChamber()
     local panel=aquariumWindow.roster
     panel.showJournal=not panel.showJournal
     if aquariumController.clearJournalFlash then aquariumController.clearJournalFlash() end
+    if aquariumController.layoutJournal then aquariumController.layoutJournal() end
     aquariumController.renderFishRoster()
   end)
   aquariumWindow.roster.journalToggle=journalToggle
@@ -3113,6 +3117,8 @@ local function buildChamber()
   aquariumController.layoutJournal=function()
     local journal=panel.showJournal
     panel:SetSize(journal and 596 or 302,journal and 454 or 424)
+    journalToggle:ClearAllPoints()
+    journalToggle:SetPoint('TOPRIGHT',panel,'TOPRIGHT',-13,-12)
     panel.detail:SetShown(journal)
     panel.profileTab:SetShown(journal)
     panel.awardsTab:SetShown(journal)
@@ -3178,7 +3184,9 @@ local function buildChamber()
 
   local function hideJournalSpeciesHighlight(self)
     local p=aquariumController.currentTheme()
-    self.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],(self.index or 1)%2==0 and .82 or .58)
+    local selected=aquariumWindow and aquariumWindow.roster and aquariumWindow.roster.selectedSpecies==self.journalSpeciesID
+    local color=selected and p.hover or p.button
+    self.bg:SetColorTexture(color[1],color[2],color[3],selected and .9 or .65)
     aquariumController.clearJournalFlash()
   end
 
@@ -3240,74 +3248,84 @@ local function buildChamber()
     local panel=aquariumWindow.roster
     local content=panel.content
     if panel.showJournal then
-      local journal=characterSettings.catchJournal
-      local rows={}
-      local speciesByRow={}
-      local speciesRarityByRow={}
-      local speciesCount=aquariumController.journalSpeciesCount()
-      rows[#rows+1]='|cff6ee3e8DISCOVERIES|r    '..speciesCount..' species / '..(journal.totalCaught or 0)..' catches'
-      rows[#rows+1]='Best rarity: '..aquariumController.fishRarityNames[journal.rarestQuality or 1]
-      rows[#rows+1]='|cff6ee3e8ACHIEVEMENTS|r'
-      for _,milestone in ipairs(aquariumController.fishMilestones) do
-        local unlocked=journal.achievements[milestone.key]
-        rows[#rows+1]=(unlocked and '|cff58e49a[+]|r ' or '|cff7b8585[-]|r ')..milestone.name
-      end
-      rows[#rows+1]='|cff6ee3e8SPECIES INDEX|r'
+      local journal=characterSettings.catchJournal or {}
       local species={}
-      for id,entry in pairs(journal.species) do
+      for id,entry in pairs(journal.species or {}) do
         species[#species+1]={id=tonumber(id),entry=entry}
       end
-      table.sort(species,function(a,b) return (a.id or 0)<(b.id or 0) end)
-      for _,discovery in ipairs(species) do
-        local entry=discovery.entry
-        local name=select(1,GetItemInfo(discovery.id)) or ('Fish #'..tostring(discovery.id))
-        rows[#rows+1]=name..'  x'..(entry.caught or 0)..'  ['..aquariumController.fishRarityNames[entry.bestRarity or 1]..']'
-        speciesByRow[#rows]=discovery.id
-        speciesRarityByRow[#rows]=entry.bestRarity or 1
-      end
-      content:SetHeight(math.max(1,#rows*29+3))
-      panel.header:SetText('AQUARIUM JOURNAL')
-      panel.subtitle:SetText('Discovery history survives aquarium RESET')
-      journalToggle.text:SetText('FISH')
-      for i,labelText in ipairs(rows) do
+      table.sort(species,function(a,b)
+        if (a.entry.caught or 0)==(b.entry.caught or 0) then return (a.id or 0)<(b.id or 0) end
+        return (a.entry.caught or 0)>(b.entry.caught or 0)
+      end)
+      panel.header:SetText('FISH ENCYCLOPEDIA')
+      panel.subtitle:SetText(#species..' species discovered   |   '..(journal.totalCaught or 0)..' lifetime catches')
+      journalToggle.text:SetText('FISH LIST')
+      if not panel.selectedSpecies and #species>0 then panel.selectedSpecies=species[1].id end
+      content:SetHeight(math.max(1,#species*45+3))
+      for i,discovery in ipairs(species) do
         local row=panel.rows[i]
         if not row then
           row=CreateFrame('Button',nil,content)
-          row:SetSize(254,28)
           row.bg=row:CreateTexture(nil,'BACKGROUND')
           row.bg:SetAllPoints()
-          row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
-          row.name:SetPoint('LEFT',6,0)
-          row.name:SetWidth(237)
-          row.name:SetJustifyH('LEFT')
+          row.name=row:CreateFontString(nil,'OVERLAY','GameFontNormal')
+          row.sub=row:CreateFontString(nil,'OVERLAY','GameFontNormalSmall')
           panel.rows[i]=row
         end
+        row:SetSize(218,42)
+        if not row.icon then row.icon=row:CreateTexture(nil,'ARTWORK') end
+        row.icon:ClearAllPoints()
+        row.icon:SetPoint('LEFT',row,'LEFT',8,0)
+        row.icon:SetSize(29,29)
+        row.icon:SetTexCoord(.08,.92,.08,.92)
+        row.icon:SetTexture((GetItemIcon and GetItemIcon(discovery.id)) or 'Interface\\Icons\\INV_Misc_Fish_02')
+        row.icon:Show()
+        row.name:ClearAllPoints()
+        row.name:SetPoint('TOPLEFT',row,'TOPLEFT',44,-6)
+        row.name:SetWidth(166)
+        row.name:SetHeight(17)
+        row.name:SetJustifyH('LEFT')
+        row.name:SetText(select(1,GetItemInfo(discovery.id)) or ('Species #'..discovery.id))
+        row.sub:ClearAllPoints()
+        row.sub:SetPoint('TOPLEFT',row,'TOPLEFT',44,-24)
+        row.sub:SetWidth(166)
+        row.sub:SetHeight(13)
+        row.sub:SetJustifyH('LEFT')
+        row.sub:SetText('Caught '..(discovery.entry.caught or 0)..'  |  '..(aquariumController.fishRarityNames[discovery.entry.bestRarity or 1] or 'Common'))
         if not row.rarityStripe then
           row.rarityStripe=row:CreateTexture(nil,'ARTWORK')
           row.rarityStripe:SetPoint('TOPLEFT',row,'TOPLEFT',1,-2)
           row.rarityStripe:SetPoint('BOTTOMLEFT',row,'BOTTOMLEFT',1,2)
           row.rarityStripe:SetWidth(3)
         end
-        local stripeColor=aquariumController.rarityAccentRGB[speciesRarityByRow[i] or 1]
-        row.rarityStripe:SetColorTexture(stripeColor[1],stripeColor[2],stripeColor[3],.93)
-        row.rarityStripe:SetShown(not not speciesByRow[i])
+        local stripe=aquariumController.rarityAccentRGB[discovery.entry.bestRarity or 1] or aquariumController.rarityAccentRGB[1]
+        row.rarityStripe:SetColorTexture(stripe[1],stripe[2],stripe[3],.93)
+        row.rarityStripe:Show()
         row.fish=nil
-        row.journalSpeciesID=speciesByRow[i]
+        row.journalSpeciesID=discovery.id
         row.index=i
         row:SetScript('OnEnter',showJournalSpeciesHighlight)
         row:SetScript('OnLeave',hideJournalSpeciesHighlight)
-        if row.icon then row.icon:Hide() end
-        row.name:ClearAllPoints()
-        row.name:SetPoint('LEFT',row,'LEFT',9,0)
-        row.name:SetWidth(238)
-        row.name:SetText(labelText)
+        row:SetScript('OnClick',function(self)
+          panel.selectedSpecies=self.journalSpeciesID
+          panel.journalMode='species'
+          aquariumController.renderFishRoster()
+        end)
         local p=aquariumController.currentTheme()
-        row.bg:SetColorTexture(p.button[1],p.button[2],p.button[3],i%2==0 and .82 or .58)
+        row.name:SetTextColor(unpack(p.text))
+        row.sub:SetTextColor(unpack(p.muted))
+        local background=panel.selectedSpecies==discovery.id and p.hover or p.button
+        row.bg:SetColorTexture(background[1],background[2],background[3],.90)
         row:ClearAllPoints()
-        row:SetPoint('TOPLEFT',content,'TOPLEFT',0,-(i-1)*29)
-        row:SetShown(true)
+        row:SetPoint('TOPLEFT',content,'TOPLEFT',0,-(i-1)*45)
+        row:Show()
       end
-      for i=#rows+1,#panel.rows do panel.rows[i]:Hide();panel.rows[i].fish=nil;panel.rows[i].journalSpeciesID=nil end
+      for i=#species+1,#panel.rows do
+        panel.rows[i]:Hide()
+        panel.rows[i].fish=nil
+        panel.rows[i].journalSpeciesID=nil
+      end
+      if aquariumController.renderJournalDetail then aquariumController.renderJournalDetail() end
       return
     end
     journalToggle.text:SetText('JOURNAL')
