@@ -3099,7 +3099,12 @@ local function buildChamber()
         local isDone=journal.achievements and journal.achievements[award.key]
         local line=panel.detailLines[i]
         if line then
-          line:SetText((isDone and '|cff63e2a5✓|r  ' or '|cff888e92○|r  ')..award.name..(isDone and '  |cff63e2a5DONE|r' or ''))
+          local progress=''
+          if award.type=='total' then progress='  '..math.min(total,award.goal)..'/'..award.goal end
+          if award.type=='species' then progress='  '..math.min(speciesCount,award.goal)..'/'..award.goal end
+          if award.type=='rare' then progress='  '..(isDone and '1/1' or '0/1') end
+          if award.type=='gold' then progress='  '..(isDone and '1/1' or '0/1') end
+          line:SetText((isDone and '|cff63e2a5[+]|r  ' or '|cff888e92[-]|r  ')..award.name..progress)
         end
       end
       return
